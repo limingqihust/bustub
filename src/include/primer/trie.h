@@ -75,7 +75,7 @@ template <class T>
 class TrieNodeWithValue : public TrieNode {
  public:
   // Create a trie node with no children and a value.
-  explicit TrieNodeWithValue(std::shared_ptr<T> value) : value_(std::move(value)) { this->is_value_node_ = true; }
+  explicit TrieNodeWithValue(unsigned int value) : value_(std::move(value)) { this->is_value_node_ = true; }
 
   // Create a trie node with children and a value.
   TrieNodeWithValue(std::map<char, std::shared_ptr<const TrieNode>> children, std::shared_ptr<T> value)
