@@ -2,6 +2,9 @@
 #include <string_view>
 #include <stack>
 #include "common/exception.h"
+//#include "trie.h"
+//#include <string_view>
+//#include <stack>
 
 namespace bustub {
 
@@ -54,9 +57,8 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
 
   auto new_root = root_ ? root_->Clone() : std::make_unique<TrieNode>();
 
-  if(key.empty())
-  {
-    // if key is empty,insert value into root
+  if(key.empty()){
+    // if key is empty,insert value into new_root
     auto new_children=new_root->children_;
     auto new_value = std::make_shared<T>(std::move(value));
     auto new_value_node = std::make_shared<TrieNodeWithValue<T>>(new_children, new_value);
@@ -67,13 +69,25 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
   auto current_node = new_root.get();
   for (auto it=key.begin();it<key.end()-1;it++) {
     const char c=*it;
-    if (current_node->children_.count(c) == 0) {
-      // do not have node corresponding to key,create now child node
-      current_node->children_[c] = std::make_unique<TrieNode>();
+    if(current_node->children_.count(c)){
+      if(current_node->children_[c]->is_value_node_){
+        current_node->children_[c]=current_node->children_[c]->Clone();
+        // auto old_value=old_value_node->value_;
+        // auto old_children=current_node->children_[c]->children_;
+
+        // auto new_value_node = std::make_shared<TrieNodeWithValue<T>>(old_children, old_value);
+        // new_value_node->is_value_node_=true;
+        // current_node->children_[c]=std::static_pointer_cast<const TrieNode>(new_value_node);
+      }
+      else{
+        current_node->children_[c]=std::make_unique<TrieNode>(current_node->children_[c]->children_);
+      }
+      // current_node->children_[c]=std::make_unique<TrieNode>(current_node->children_[c]->children_);
     }
-//    else {
-//      current_node->children_[c] = current_node->children_[c]->Clone();
-//    }
+    else{
+      current_node->children_[c]=std::make_unique<TrieNode>(std::map<char, std::shared_ptr<const TrieNode>>());
+    }
+
     current_node = const_cast<TrieNode *>(current_node->children_[c].get());
   }
 
@@ -121,7 +135,7 @@ auto Trie::Remove(std::string_view key) const -> Trie {
     // if currrent_node has children with key.back() and it has a value
     auto new_children=current_node->children_[key.back()]->children_;
     auto new_node=current_node->children_[key.back()]->Clone();
-    current_node->children_[key.back()]=std::make_unique<TrieNode>(new_children);
+    current_node->children_[key.back()]=std::make_shared<TrieNode>(new_children);
 
   }
   return Trie(std::move(new_root));
