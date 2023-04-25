@@ -1,7 +1,7 @@
-#include "primer/trie.h"
-#include <string_view>
-#include <stack>
-#include "common/exception.h"
+ #include "primer/trie.h"
+ #include <string_view>
+ #include <stack>
+ #include "common/exception.h"
 //#include "trie.h"
 //#include <string_view>
 //#include <stack>
@@ -49,6 +49,7 @@ auto Trie::Get(std::string_view key) const -> const T * {
   return value_node->value_.get();
 }
 
+
 template <class T>
 auto Trie::Put(std::string_view key, T value) const -> Trie {
   // Note that `T` might be a non-copyable type. Always use `std::move` when creating `shared_ptr` on that value.
@@ -60,7 +61,7 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
   if(key.empty()){
     // if key is empty,insert value into new_root
     auto new_children=new_root->children_;
-    auto new_value = std::make_shared<T>(std::move(value));
+    auto new_value = std::make_shared<T>(std::move(value)); // ptr to value
     auto new_value_node = std::make_shared<TrieNodeWithValue<T>>(new_children, new_value);
     new_value_node->is_value_node_=true;
     return Trie(std::move(std::static_pointer_cast<const TrieNode>(new_value_node)));
@@ -116,30 +117,65 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
 auto Trie::Remove(std::string_view key) const -> Trie {
   // You should walk through the trie and remove nodes if necessary. If the node doesn't contain a value any more,
   // you should convert it to `TrieNode`. If a node doesn't have children any more, you should remove it.
+
   auto new_root=root_?root_->Clone():std::make_unique<TrieNode>();
-  if(!root_){
-    // if this is nullptr,return a new_root with nullptr
-    return Trie(std::move(new_root));
-  }
-  auto current_node = new_root.get();
-  for (auto it=key.begin();it<key.end()-1;it++) {
+
+  std::stack<std::pair<TrieNode*,char>> _stack;
+  auto current_node=new_root.get();
+  for(auto it=key.begin();it<key.end();it++){
+
     const char c=*it;
-    if (current_node->children_.count(c) == 0) {
-      current_node->children_[c] = std::make_unique<TrieNode>();
+    if(current_node->children_.count(c)!=0){
+      // for each node in path,copy it
+      current_node->children_[c]=current_node->children_[c]->Clone();
+      // current_node->children_[c]=std::make_unique<TrieNode>(current_node->children_[c]->children_);
+    }
+    else{
+      // if do not have proper path,directly return old root
+      // it may rarely happen
+      return Trie(root_->Clone());
     }
     current_node = const_cast<TrieNode *>(current_node->children_[c].get());
+    _stack.push({current_node,c});
   }
-  if(current_node->children_.count(key.back()) && current_node->children_[key.back()]->is_value_node_)
+
+
+  // we should remove current[key.back()]
+  // if current[key.back()] has children,transfer cufrrent[key.back()] to TrieNode
+  // if it do not have children,delete it
+  // roll back to see whether we has more node to delete
+  if(!current_node->is_value_node_){
+    // if this node is not value_node,return old root
+    return Trie(root_->Clone());
+  }
+
+
+  char c=_stack.top().second;
+  current_node=_stack.top().first;
+  _stack.pop();
+  auto current_parent_node=_stack.top().first;
+  if(!current_node->children_.empty()){
+    current_parent_node->children_[c]=std::make_unique<TrieNode>(current_node->children_);
+    return Trie(std::move(new_root));
+  }
+  else{
+    current_parent_node->children_.erase(c);
+  }
+  while(_stack.size()>=2)
   {
-    // current_node->children_[key.back()] is the value_node we want
-    // if currrent_node has children with key.back() and it has a value
-    auto new_children=current_node->children_[key.back()]->children_;
-    auto new_node=current_node->children_[key.back()]->Clone();
-    current_node->children_[key.back()]=std::make_shared<TrieNode>(new_children);
+    c=_stack.top().second;
+    current_node=_stack.top().first;
+    _stack.pop();
+    current_parent_node=_stack.top().first;
+    if(!current_node->children_.empty() || current_node->is_value_node_){
+      break;
+    current_parent_node->children_.erase(c);
+    }
+
 
   }
-  return Trie(std::move(new_root));
 
+  return Trie(std::move(new_root));
 }
 
 // Below are explicit instantiation of template functions.
