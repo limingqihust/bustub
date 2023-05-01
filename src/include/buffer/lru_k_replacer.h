@@ -17,23 +17,25 @@
 #include <mutex>  // NOLINT
 #include <unordered_map>
 #include <vector>
-
+#include <algorithm>
 #include "common/config.h"
 #include "common/macros.h"
-
+#define INF 0x3f3f3f3f
 namespace bustub {
 
 enum class AccessType { Unknown = 0, Get, Scan };
 
 class LRUKNode {
- private:
+ public:
   /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
   // Remove maybe_unused if you start using them. Feel free to change the member variables as you want.
 
-  [[maybe_unused]] std::list<size_t> history_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] frame_id_t fid_;
-  [[maybe_unused]] bool is_evictable_{false};
+  std::list<size_t> history_;      // 这个页面的访问记录 用于更新倒数第k次访问时间戳
+  [[maybe_unused]] size_t k_;      // lru-k中k的值 似乎没有用
+  frame_id_t fid_;// 这个页面的id 似乎没有用
+  bool is_evictable_{false};       // 这个页面是否可被淘汰
+  size_t cnt_{0};                  // 记录访问了多少次
+  size_t k_timestamp_{INF};        // 该page第k次访问的时间 如果访问次数不满k 为+inf
 };
 
 /**
@@ -149,13 +151,18 @@ class LRUKReplacer {
 
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
-  // Remove maybe_unused if you start using them.
-  [[maybe_unused]] std::unordered_map<frame_id_t, LRUKNode> node_store_;
-  [[maybe_unused]] size_t current_timestamp_{0};
-  [[maybe_unused]] size_t curr_size_{0};
-  [[maybe_unused]] size_t replacer_size_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] std::mutex latch_;
+
+  //    std::unordered_map<frame_id_t, LRUKNode*> node_store_;  // page_id--page信息结点
+  std::unordered_map<frame_id_t,std::list<LRUKNode>::iterator> node_store_;           // page_id---page信息结点
+  size_t current_timestamp_{0};                           // 当前时间戳 每进行一次操作就加一
+  size_t curr_size_{0};                                   // 可淘汰页面数量
+  size_t replacer_size_;                                  // 能存放的frame的最大数量
+  size_t k_;                                              // lru-k中k的值
+  std::mutex latch_;
+
+  std::list<LRUKNode> less_k_frame_;                      // 没有访问过k次的页面 按照时间戳维护
+                                      // 旧的在链表头 淘汰时从链表头向链表尾遍历
+  std::list<LRUKNode> cache_frame_;                       // 访问过k次的页面 按照倒数第k次访问的时间戳维护
 };
 
 }  // namespace bustub
