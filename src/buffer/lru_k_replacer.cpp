@@ -52,7 +52,7 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
   current_timestamp_++;
   if(frame_id>static_cast<frame_id_t>(replacer_size_))
   {
-    throw std::exception();
+    throw std::runtime_error("the frame_id is more than replacer_size_");
   }
   if(node_store_.count(frame_id)==0)        // the frame id has not been seen before
   {
@@ -115,7 +115,7 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable)
   std::lock_guard<std::mutex> lock(latch_);
   if(frame_id>static_cast<frame_id_t>(replacer_size_))
   {
-    throw std::exception();
+    throw std::runtime_error("the frame_id is more than replacer_size_");
   }
   auto cur_node=node_store_[frame_id];
   if(cur_node->is_evictable_ && !set_evictable)             // the frame was previously evictable,and is to be set to non-evictable
@@ -139,7 +139,7 @@ void LRUKReplacer::Remove(frame_id_t frame_id)
   }
   if(!node_store_[frame_id]->is_evictable_)       //  it is a non-evictable frame,
   {
-    throw std::exception();
+    throw std::runtime_error("attemp to remove a frame which is non-evictable");
   }
   auto cur_node=node_store_[frame_id];
   curr_size_--;
