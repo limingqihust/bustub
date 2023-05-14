@@ -152,8 +152,7 @@ class LRUKReplacer {
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
 
-  //    std::unordered_map<frame_id_t, LRUKNode*> node_store_;  // page_id--page信息结点
-  std::unordered_map<frame_id_t,std::list<LRUKNode>::iterator> node_store_;           // page_id---page信息结点
+  std::unordered_map<frame_id_t,std::list<LRUKNode>::iterator> node_store_;
   size_t current_timestamp_{0};                           // 当前时间戳 每进行一次操作就加一
   size_t curr_size_{0};                                   // 可淘汰页面数量
   size_t replacer_size_;                                  // 能存放的frame的最大数量
