@@ -70,8 +70,6 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page *
 
 auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType access_type) -> Page * {
   frame_id_t frame_id;
-
-
   if(page_table_.count(page_id)!=0)             // the page is found in buffer pool
   {
     frame_id=page_table_[page_id];
@@ -178,12 +176,31 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool
 
 auto BufferPoolManager::AllocatePage() -> page_id_t { return next_page_id_++; }
 
-auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard { return {this, nullptr}; }
+auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard
+{
+  auto page= FetchPage(page_id);
+  return {this, page};
+}
 
-auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard { return {this, nullptr}; }
+auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard
+{
+  auto page= FetchPage(page_id);
+  page->RLatch();
+  return {this, page};
 
-auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard { return {this, nullptr}; }
+}
 
-auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard { return {this, nullptr}; }
+auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard
+{
+  auto page= FetchPage(page_id);
+  page->WLatch();
+  return {this, page};
+}
+
+auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard
+{
+  auto page=NewPage(page_id);
+  return {this, page};
+}
 
 }  // namespace bustub
