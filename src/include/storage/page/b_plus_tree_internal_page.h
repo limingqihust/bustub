@@ -36,42 +36,18 @@ namespace bustub {
 INDEX_TEMPLATE_ARGUMENTS
 class BPlusTreeInternalPage : public BPlusTreePage {
  public:
-  // Deleted to disallow initialization
   BPlusTreeInternalPage() = delete;
   BPlusTreeInternalPage(const BPlusTreeInternalPage &other) = delete;
-
-  /**
-   * Writes the necessary header information to a newly created page, must be called after
-   * the creation of a new page to make a valid BPlusTreeInternalPage
-   * @param max_size Maximal size of the page
-   */
-  void Init(int max_size = INTERNAL_PAGE_SIZE);
-
-  /**
-   * @param index The index of the key to get. Index must be non-zero.
-   * @return Key at index
-   */
+  void Init(int max_size = INTERNAL_PAGE_SIZE,page_id_t page_id=INVALID_PAGE_ID,page_id_t parent_page_id=INVALID_PAGE_ID);
   auto KeyAt(int index) const -> KeyType;
-
-  /**
-   *
-   * @param index The index of the key to set. Index must be non-zero.
-   * @param key The new value for key
-   */
   void SetKeyAt(int index, const KeyType &key);
-
-  /**
-   *
-   * @param value the value to search for
-   */
   auto ValueIndex(const ValueType &value) const -> int;
-
-  /**
-   *
-   * @param index the index
-   * @return the value at the index
-   */
   auto ValueAt(int index) const -> ValueType;
+  auto Lookup(const KeyType& key,const KeyComparator &comparator) const ->page_id_t;
+  void MoveHalfTo(BPlusTreeInternalPage* recipient,BufferPoolManager* bpm);
+  void CopyNFrom(MappingType* items,int size,BufferPoolManager* bpm);
+  void InsertNodeAfter(const ValueType& old_value,const KeyType& new_key,const ValueType& new_value);
+  void PopulateNewRoot(const ValueType& old_value,const KeyType& new_key,const ValueType& new_value);
 
   /**
    * @brief For test only, return a string representing all keys in

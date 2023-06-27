@@ -69,27 +69,31 @@ class BPlusTree {
                      const KeyComparator &comparator, int leaf_max_size = LEAF_PAGE_SIZE,
                      int internal_max_size = INTERNAL_PAGE_SIZE);
 
-  // Returns true if this B+ tree has no keys and values.
   auto IsEmpty() const -> bool;
-
-  // Insert a key-value pair into this B+ tree.
   auto Insert(const KeyType &key, const ValueType &value, Transaction *txn = nullptr) -> bool;
+  void StartNewTree(const KeyType& key,const ValueType& value);
+  auto InsertIntoLeaf(const KeyType& key,const ValueType& value) -> bool;
+  void InsertIntoParent(BPlusTreePage *old_tree_page, const KeyType &key, BPlusTreePage *new_tree_page);
+  template <typename N>
+  auto Split(N* tree_page) -> N *;
 
   // Remove a key and its value from this B+ tree.
   void Remove(const KeyType &key, Transaction *txn);
-
-  // Return the value associated with a given key
   auto GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn = nullptr) -> bool;
+  auto FindLeafPage(const KeyType& key) const ->Page*;
+  auto FindLeftLeafPage() const -> Page*;
+  auto GetRootPageId() const -> page_id_t;
+  void SetRootPageId(page_id_t root_page_id);
 
-  // Return the page id of the root node
-  auto GetRootPageId() -> page_id_t;
 
-  // Index iterator
+
   auto Begin() -> INDEXITERATOR_TYPE;
-
   auto End() -> INDEXITERATOR_TYPE;
-
   auto Begin(const KeyType &key) -> INDEXITERATOR_TYPE;
+
+
+
+
 
   // Print the B+ tree
   void Print(BufferPoolManager *bpm);

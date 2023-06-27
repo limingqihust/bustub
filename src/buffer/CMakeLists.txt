@@ -4,7 +4,7 @@ add_library(
         buffer_pool_manager.cpp
         clock_replacer.cpp
         lru_replacer.cpp
-        lru_k_replacer.cpp)
+        lru_k_replacer.cpp buffer_pool_manager.cpp)
 
 set(ALL_OBJECT_FILES
         ${ALL_OBJECT_FILES} $<TARGET_OBJECTS:bustub_buffer>
