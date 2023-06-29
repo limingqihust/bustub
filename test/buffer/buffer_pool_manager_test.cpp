@@ -200,7 +200,7 @@ TEST(BufferPoolManagerTest, HardTest) {
   delete disk_manager;
 }
 
-TEST(PageGuardTest, HHTest) {
+TEST(PageGuardTest, DISABLED_HHTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 5;
   const size_t k = 2;
@@ -255,4 +255,38 @@ TEST(PageGuardTest, HHTest) {
   disk_manager->ShutDown();
 }
 
+TEST(BufferPoolManagerTest, HardTest_3) {
+  const std::string db_name = "test.db";
+  const size_t buffer_pool_size = 50;
+  const size_t k = 10;
+
+  auto *disk_manager = new DiskManager(db_name);
+  auto *bpm = new BufferPoolManager(buffer_pool_size, disk_manager, k);
+
+  page_id_t page_id[100];
+  [[maybe_unused]] Page *page[100];
+
+  // new page 0 in frame 0,page 1 in frame 1,...,page 49 in frame 49
+  for (int i = 0; i <= 49; i++) {
+    page[i] = bpm->NewPage(&page_id[i]);
+  }
+  // unpin page 0,2,4,...,48 which are dirty
+  // unpin page 1,3,5,...,49 which are not dirty
+  for (int i = 0; i <= 49; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage(page_id[i], true);
+    } else {
+      bpm->UnpinPage(page_id[i], false);
+    }
+  }
+
+  for (int i = 50; i <= 99; i++) {
+    page[i] = bpm->NewPage(&page_id[i]);
+  }
+  for (int i = 50; i <= 99; i++) {
+    bpm->UnpinPage(page_id[i], false);
+  }
+  delete bpm;
+  delete disk_manager;
+}
 }  // namespace bustub

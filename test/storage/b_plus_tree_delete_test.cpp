@@ -23,7 +23,7 @@ namespace bustub {
 
 using bustub::DiskManagerUnlimitedMemory;
 
-TEST(BPlusTreeTests, DISABLED_DeleteTest1) {
+TEST(BPlusTreeTests, DeleteTest1) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -41,14 +41,18 @@ TEST(BPlusTreeTests, DISABLED_DeleteTest1) {
   auto *transaction = new Transaction(0);
 
   std::vector<int64_t> keys = {1, 2, 3, 4, 5};
+  LOG_INFO("# begin to insert");
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
     tree.Insert(index_key, rid, transaction);
   }
-
+  LOG_INFO("# insert done");
+  std::string out_file_name = "output.dot";
+  tree.Draw(bpm, out_file_name);
   std::vector<RID> rids;
+  LOG_INFO("# begein to lookup");
   for (auto key : keys) {
     rids.clear();
     index_key.SetFromInteger(key);
@@ -58,11 +62,13 @@ TEST(BPlusTreeTests, DISABLED_DeleteTest1) {
     int64_t value = key & 0xFFFFFFFF;
     EXPECT_EQ(rids[0].GetSlotNum(), value);
   }
-
+  LOG_INFO("# lookup done");
   std::vector<int64_t> remove_keys = {1, 5};
   for (auto key : remove_keys) {
     index_key.SetFromInteger(key);
     tree.Remove(index_key, transaction);
+    index_key.SetFromInteger(key);
+    tree.Insert(index_key, rid, transaction);
   }
 
   int64_t size = 0;

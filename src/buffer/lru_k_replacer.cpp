@@ -80,7 +80,6 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
     cur_node->history_.push_front(current_timestamp_);
     if (cur_node->cnt_ == k_) {  // 访问次数超过k 从less_k_frame_迁移到cache_frame_
       cur_node->k_timestamp_ = cur_node->history_.back();
-      //      cache_frame_.splice(cache_frame_.begin(), less_k_frame_, cur_node);
       auto value = cur_node->k_timestamp_;
       // find proper position
       auto iter_dst = std::find_if(cache_frame_.begin(), cache_frame_.end(),

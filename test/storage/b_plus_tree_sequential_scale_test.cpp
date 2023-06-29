@@ -58,8 +58,8 @@ TEST(BPlusTreeTests, ScaleTest) {  // NOLINT
   std::shuffle(keys.begin(), keys.end(), rng);
   int i = 0;
   for (auto key : keys) {
-    if (i == 17) {
-      printf("insert %d\tkey:%ld\n", i, key);
+    if (i % 100 == 0) {
+      printf("size : %d\n", i);
     }
     i++;
     int64_t value = key & 0xFFFFFFFF;

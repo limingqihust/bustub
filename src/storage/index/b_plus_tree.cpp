@@ -230,9 +230,23 @@ auto BPLUSTREE_TYPE::Split(N *tree_page) -> N * {
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
-  // Declaration of context instance.
-  Context ctx;
-  (void)ctx;
+  Page *page = FindLeafPage(key);
+  auto leaf_page = reinterpret_cast<LeafPage *>(page->GetData());
+  if (leaf_page == nullptr) {
+    bpm_->UnpinPage(page->GetPageId(), false);
+    return ;
+  }
+  int remove_index;
+  for (remove_index = 0; remove_index < leaf_page->GetSize(); remove_index++) {
+    if (comparator_(leaf_page->KeyAt(remove_index), key) == 0) {
+      break;
+    }
+  }
+
+
+
+//  Context ctx;
+//  (void)ctx;
 }
 
 /*****************************************************************************

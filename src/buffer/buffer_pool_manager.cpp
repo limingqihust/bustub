@@ -21,7 +21,7 @@ namespace bustub {
 BufferPoolManager::BufferPoolManager(size_t pool_size, DiskManager *disk_manager, size_t replacer_k,
                                      LogManager *log_manager)
     : pool_size_(pool_size), disk_manager_(disk_manager), log_manager_(log_manager) {
-  LOG_INFO("# new BufferPoolManager : pool_size :%ld replacer_k : %ld", pool_size, replacer_k);
+  //  LOG_INFO("# new BufferPoolManager : pool_size :%ld replacer_k : %ld", pool_size, replacer_k);
   // we allocate a consecutive memory space for the buffer pool
   pages_ = new Page[pool_size_];
   replacer_ = std::make_unique<LRUKReplacer>(pool_size, replacer_k);
@@ -35,19 +35,19 @@ BufferPoolManager::BufferPoolManager(size_t pool_size, DiskManager *disk_manager
 BufferPoolManager::~BufferPoolManager() { delete[] pages_; }
 
 auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
-  LOG_INFO("# NewPage : ");
+  //  LOG_INFO("# NewPage : ");
   std::lock_guard<std::mutex> lock(latch_);
   frame_id_t new_frame_id;
-  if (!free_list_.empty()) {  // pick frame from free list
+  if (!free_list_.empty()) {  // 有空闲的frame
     new_frame_id = free_list_.front();
-    LOG_INFO("# NewPage : pick free frame %d", new_frame_id);
+    //    LOG_INFO("# NewPage : frame free list has free frame,pick free frame %d", new_frame_id);
     free_list_.pop_front();
-  } else {  // pick frame from lru-k replacer
+  } else {  // 没有空闲的frame 驱逐一个
     if (!replacer_->Evict(&new_frame_id)) {
-      LOG_INFO("# NewPage : fail,evict error");
+      //      LOG_INFO("# NewPage : fail,evict error");
       return nullptr;
     }
-    LOG_INFO("# NewPage : evict frame %d", new_frame_id);
+    //    LOG_INFO("# NewPage : there is no free frame , evict frame %d", new_frame_id);
     page_table_.erase(pages_[new_frame_id].GetPageId());
   }
 
@@ -69,12 +69,12 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
 
   page_table_[new_page_id] = new_frame_id;
   *page_id = new_page_id;
-  LOG_INFO("# NewPage : page_id %d in frame_id %d", new_page_id, new_frame_id);
+  //  LOG_INFO("# NewPage : page_id %d in frame_id %d", new_page_id, new_frame_id);
   return pages_ + new_frame_id;
 }
 
 auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType access_type) -> Page * {
-  LOG_INFO("# FetchPage : page_id %d", page_id);
+  //  LOG_INFO("# FetchPage : page_id %d", page_id);
   std::lock_guard<std::mutex> lock(latch_);
   frame_id_t frame_id;
   if (page_table_.count(page_id) != 0) {  // 该page已经在buffer pool中
@@ -82,7 +82,7 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
     pages_[frame_id].pin_count_++;
     replacer_->SetEvictable(frame_id, false);
     replacer_->RecordAccess(frame_id);
-    LOG_INFO("# FetchPage : page %d is found in buffer pool frame %d", page_id, frame_id);
+    //    LOG_INFO("# FetchPage : page %d is found in buffer pool frame %d", page_id, frame_id);
     return pages_ + frame_id;
   }
   // 该page不在buffer pool中 需要将其从磁盘中取出来
@@ -95,16 +95,16 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
     disk_manager_->ReadPage(page_id, pages_[frame_id].data_);
     replacer_->RecordAccess(frame_id);
     replacer_->SetEvictable(frame_id, false);
-    LOG_INFO("# FetchPage : page %d is not in buffer pool,pick frame %d from free list", page_id, frame_id);
+    //    LOG_INFO("# FetchPage : page %d is not in buffer pool,pick frame %d from free list", page_id, frame_id);
     return pages_ + frame_id;
   }
   // 没有空闲的frame 需要驱逐一个
   if (!replacer_->Evict(&frame_id)) {
-    LOG_INFO("# FetchPage : page %d is not in buffer pool,but can not evict a frame", page_id);
+    //    LOG_INFO("# FetchPage : page %d is not in buffer pool,but can not evict a frame", page_id);
     return nullptr;
   }
 
-  LOG_INFO("# FetchPage : page %d is not in buffer pool,evict page in frame %d", page_id, frame_id);
+  //  LOG_INFO("# FetchPage : page %d is not in buffer pool,evict page in frame %d", page_id, frame_id);
   if (pages_[frame_id].IsDirty()) {  // if the frame has dirty page,write it back
     disk_manager_->WritePage(pages_[frame_id].GetPageId(),
                              pages_[frame_id].GetData());  // write old dirty page in the new frame to disk
@@ -123,9 +123,9 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
 }
 
 auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unused]] AccessType access_type) -> bool {
-  LOG_INFO("# UnpinPage : page_id %d is dirty %d", page_id, (int)is_dirty);
+  //  LOG_INFO("# UnpinPage : page_id %d is dirty %d", page_id, (int)is_dirty);
   std::lock_guard<std::mutex> lock(latch_);
-  if (page_table_.count(page_id) == 0) {  // the page is not in buffer pool
+  if (page_table_.count(page_id) == 0) {  // 没有该page
     return false;
   }
   frame_id_t frame_id = page_table_[page_id];
@@ -137,7 +137,7 @@ auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unus
   }
 
   pages_[frame_id].pin_count_--;
-  LOG_INFO("# UnPinPage : after UnPinPage pin_count_ of page_id %d is %d", page_id, pages_[frame_id].pin_count_);
+  //  LOG_INFO("# UnPinPage : after UnPinPage pin_count_ of page_id %d is %d", page_id, pages_[frame_id].pin_count_);
   if (pages_[frame_id].pin_count_ == 0) {
     replacer_->SetEvictable(frame_id, true);
   }
@@ -145,7 +145,7 @@ auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unus
 }
 
 auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool {
-  LOG_INFO("# FlushPage : page_id %d", page_id);
+  //  LOG_INFO("# FlushPage : page_id %d", page_id);
   std::lock_guard<std::mutex> lock(latch_);
   if (page_table_.count(page_id) == 0) {
     return false;
@@ -157,14 +157,14 @@ auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool {
 }
 
 void BufferPoolManager::FlushAllPages() {
-  LOG_INFO("# FlushAllPages:");
+  //  LOG_INFO("# FlushAllPages:");
   for (auto iter : page_table_) {
     FlushPage(iter.first);
   }
 }
 
 auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
-  LOG_INFO("# DeletePage : page_id %d", page_id);
+  //  LOG_INFO("# DeletePage : page_id %d", page_id);
   std::lock_guard<std::mutex> lock(latch_);
   if (page_table_.count(page_id) == 0) {  // the page is not in buffer pool
     return true;
@@ -182,33 +182,30 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
   return true;
 }
 
-auto BufferPoolManager::AllocatePage() -> page_id_t {
-  LOG_INFO("# AlloctePage : new_page_id %d", (page_id_t)next_page_id_);
-  return next_page_id_++;
-}
+auto BufferPoolManager::AllocatePage() -> page_id_t { return next_page_id_++; }
 
 auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard {
-  LOG_INFO("# FetchPageBasic : page_id %d", page_id);
+  //  LOG_INFO("# FetchPageBasic : page_id %d", page_id);
   auto page = FetchPage(page_id);
   return {this, page};
 }
 
 auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard {
-  LOG_INFO("# FetchPageRead : page_id %d", page_id);
+  //  LOG_INFO("# FetchPageRead : page_id %d", page_id);
   auto page = FetchPage(page_id);
   page->RLatch();
   return {this, page};
 }
 
 auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard {
-  LOG_INFO("# FetchPageWrite : page_id %d", page_id);
+  //  LOG_INFO("# FetchPageWrite : page_id %d", page_id);
   auto page = FetchPage(page_id);
   page->WLatch();
   return {this, page};
 }
 
 auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard {
-  LOG_INFO("# NewPageGuarded : ");
+  //  LOG_INFO("# NewPageGuarded : ");
   auto page = NewPage(page_id);
   return {this, page};
 }
