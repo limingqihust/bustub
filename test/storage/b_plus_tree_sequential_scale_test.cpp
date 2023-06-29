@@ -56,10 +56,9 @@ TEST(BPlusTreeTests, ScaleTest) {  // NOLINT
   // randomized the insertion order
   auto rng = std::default_random_engine{};
   std::shuffle(keys.begin(), keys.end(), rng);
-  int i=0;
+  int i = 0;
   for (auto key : keys) {
-    if(i==17)
-    {
+    if (i == 17) {
       printf("insert %d\tkey:%ld\n", i, key);
     }
     i++;
@@ -68,7 +67,7 @@ TEST(BPlusTreeTests, ScaleTest) {  // NOLINT
     index_key.SetFromInteger(key);
     tree.Insert(index_key, rid, transaction);
     std::string out_file_name = "output.dot";
-    tree.Draw(bpm,out_file_name);
+    tree.Draw(bpm, out_file_name);
   }
   std::vector<RID> rids;
   for (auto key : keys) {

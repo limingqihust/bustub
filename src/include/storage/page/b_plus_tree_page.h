@@ -60,6 +60,7 @@ class BPlusTreePage {
   void SetParentPageId(page_id_t parent_page_id);
   auto GetPageId() const -> page_id_t;
   void SetPageId(page_id_t page_id);
+
  private:
   // member variable, attributes that both internal and leaf page share
   IndexPageType page_type_ __attribute__((__unused__));

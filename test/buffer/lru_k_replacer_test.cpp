@@ -16,7 +16,7 @@
 
 namespace bustub {
 
-TEST(LRUKReplacerTest, /*DISABLED_*/SampleTest) {
+TEST(LRUKReplacerTest, SampleTest) {
   LRUKReplacer lru_replacer(7, 2);
 
   // Scenario: add six elements to the replacer. We have [1,2,3,4,5]. Frame 6 is non-evictable.
@@ -95,4 +95,29 @@ TEST(LRUKReplacerTest, /*DISABLED_*/SampleTest) {
   ASSERT_EQ(false, lru_replacer.Evict(&value));
   ASSERT_EQ(0, lru_replacer.Size());
 }
+
+TEST(LRUKReplacerTest, mytest) {
+  LRUKReplacer lru_replacer(10, 3);
+  lru_replacer.RecordAccess(1);  // time:1
+  lru_replacer.RecordAccess(2);  // time:2
+  lru_replacer.RecordAccess(3);  // time:3
+  lru_replacer.RecordAccess(4);  // time:4
+  lru_replacer.RecordAccess(1);  // time:5
+  lru_replacer.RecordAccess(2);  // time:6
+  lru_replacer.RecordAccess(3);  // time:7
+  lru_replacer.RecordAccess(1);  // time:8
+  lru_replacer.RecordAccess(2);  // time:9
+
+  lru_replacer.SetEvictable(1, true);
+  lru_replacer.SetEvictable(2, true);
+  lru_replacer.SetEvictable(3, true);
+  lru_replacer.SetEvictable(4, true);
+
+  // Scenario: Evict three pages from the replacer. Elements with max k-distance should be popped
+  // first based on LRU.
+  int value;
+  lru_replacer.Evict(&value);
+  ASSERT_EQ(3, value);
+}
+
 }  // namespace bustub

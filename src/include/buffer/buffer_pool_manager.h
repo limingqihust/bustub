@@ -47,10 +47,10 @@ class BufferPoolManager {
   ~BufferPoolManager();
 
   /** @brief Return the size (number of frames) of the buffer pool. */
-  auto GetPoolSize() -> size_t { return pool_size_; }
+  [[maybe_unused]] auto GetPoolSize() -> size_t { return pool_size_; }
 
   /** @brief Return the pointer to all the pages in the buffer pool. */
-  auto GetPages() -> Page * { return pages_; }
+  [[maybe_unused]] auto GetPages() -> Page * { return pages_; }
 
   /**
    * TODO(P1): Add implementation
@@ -155,7 +155,7 @@ class BufferPoolManager {
    *
    * @brief Flush all the pages in the buffer pool to disk.
    */
-  void FlushAllPages();
+  [[maybe_unused]] void FlushAllPages();
 
   /**
    * TODO(P1): Add implementation
@@ -170,7 +170,7 @@ class BufferPoolManager {
    * @param page_id id of page to be deleted
    * @return false if the page exists but could not be deleted, true if the page didn't exist or deletion succeeded
    */
-  auto DeletePage(page_id_t page_id) -> bool;
+  [[maybe_unused]] auto DeletePage(page_id_t page_id) -> bool;
 
  private:
   /** Number of pages in the buffer pool. */
@@ -203,7 +203,7 @@ class BufferPoolManager {
    * @brief Deallocate a page on disk. Caller should acquire the latch before calling this function.
    * @param page_id id of the page to deallocate
    */
-  void DeallocatePage(__attribute__((unused)) page_id_t page_id) {
+  [[maybe_unused]] void DeallocatePage(__attribute__((unused)) page_id_t page_id) {
     // This is a no-nop right now without a more complex data structure to track deallocated pages
   }
 

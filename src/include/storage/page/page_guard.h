@@ -133,7 +133,7 @@ class ReadPageGuard {
    */
   ~ReadPageGuard();
 
-  auto PageId() -> page_id_t { return guard_.PageId(); }
+  [[maybe_unused]] auto PageId() -> page_id_t { return guard_.PageId(); }
 
   auto GetData() -> const char * { return guard_.GetData(); }
 
@@ -193,7 +193,7 @@ class WritePageGuard {
    */
   ~WritePageGuard();
 
-  auto PageId() -> page_id_t { return guard_.PageId(); }
+  [[maybe_unused]] auto PageId() -> page_id_t { return guard_.PageId(); }
 
   auto GetData() -> const char * { return guard_.GetData(); }
 
@@ -202,7 +202,7 @@ class WritePageGuard {
     return guard_.As<T>();
   }
 
-  auto GetDataMut() -> char * { return guard_.GetDataMut(); }
+  [[maybe_unused]] auto GetDataMut() -> char * { return guard_.GetDataMut(); }
 
   template <class T>
   auto AsMut() -> T * {

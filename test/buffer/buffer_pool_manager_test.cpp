@@ -22,7 +22,7 @@ namespace bustub {
 
 // NOLINTNEXTLINE
 // Check whether pages containing terminal characters can be recovered
-TEST(BufferPoolManagerTest, /*DISABLED_*/BinaryDataTest) {
+TEST(BufferPoolManagerTest, BinaryDataTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 10;
   const size_t k = 5;
@@ -88,7 +88,7 @@ TEST(BufferPoolManagerTest, /*DISABLED_*/BinaryDataTest) {
 }
 
 // NOLINTNEXTLINE
-TEST(BufferPoolManagerTest, /*DISABLED_*/SampleTest) {
+TEST(BufferPoolManagerTest, SampleTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 10;
   const size_t k = 5;
@@ -142,6 +142,117 @@ TEST(BufferPoolManagerTest, /*DISABLED_*/SampleTest) {
 
   delete bpm;
   delete disk_manager;
+}
+
+TEST(BufferPoolManagerTest, IsDirty) {
+  const std::string db_name = "test.db";
+  const size_t buffer_pool_size = 1;
+  const size_t k = 5;
+
+  auto *disk_manager = new DiskManager(db_name);
+  auto *bpm = new BufferPoolManager(buffer_pool_size, disk_manager, k);
+
+  page_id_t page_id_temp;
+  Page *page0 = bpm->NewPage(&page_id_temp);
+  bpm->UnpinPage(page_id_temp, true);
+
+  page0 = bpm->FetchPage(page_id_temp);
+  bpm->UnpinPage(page_id_temp, false);
+
+  page0 = bpm->FetchPage(page_id_temp);
+  bpm->UnpinPage(page_id_temp, false);
+
+  page0 = bpm->NewPage(&page_id_temp);
+  bpm->UnpinPage(page_id_temp, true);
+
+  page0 = bpm->FetchPage(0);
+  EXPECT_EQ(page0->IsDirty(), false);
+
+  delete bpm;
+  delete disk_manager;
+}
+
+TEST(BufferPoolManagerTest, HardTest) {
+  const std::string db_name = "test.db";
+  const size_t buffer_pool_size = 1;
+  const size_t k = 5;
+
+  auto *disk_manager = new DiskManager(db_name);
+  auto *bpm = new BufferPoolManager(buffer_pool_size, disk_manager, k);
+
+  page_id_t page_id_temp;
+  Page *page0 = bpm->NewPage(&page_id_temp);
+  bpm->UnpinPage(page_id_temp, true);
+
+  page0 = bpm->FetchPage(page_id_temp);
+  bpm->UnpinPage(page_id_temp, false);
+
+  page0 = bpm->FetchPage(page_id_temp);
+  bpm->UnpinPage(page_id_temp, false);
+
+  page0 = bpm->NewPage(&page_id_temp);
+  bpm->UnpinPage(page_id_temp, true);
+
+  page0 = bpm->FetchPage(0);
+  EXPECT_EQ(page0->IsDirty(), false);
+
+  delete bpm;
+  delete disk_manager;
+}
+
+TEST(PageGuardTest, HHTest) {
+  const std::string db_name = "test.db";
+  const size_t buffer_pool_size = 5;
+  const size_t k = 2;
+
+  auto disk_manager = new DiskManager(db_name);
+  auto bpm = std::make_shared<BufferPoolManager>(buffer_pool_size, disk_manager, k);
+
+  page_id_t page_id_temp = 0;
+  page_id_t page_id_temp_a;
+  auto *page0 = bpm->NewPage(&page_id_temp);
+  auto *page1 = bpm->NewPage(&page_id_temp_a);
+
+  auto guarded_page = BasicPageGuard(bpm.get(), page0);
+  auto guarded_page_a = BasicPageGuard(bpm.get(), page1);
+
+  // after drop, whether destructor decrements the pin_count_ ?
+  {
+    auto read_guard1 = bpm->FetchPageRead(page_id_temp_a);
+    EXPECT_EQ(2, page1->GetPinCount());
+    read_guard1.Drop();
+    EXPECT_EQ(1, page1->GetPinCount());
+  }
+  EXPECT_EQ(1, page0->GetPinCount());
+  EXPECT_EQ(1, page1->GetPinCount());
+  // test the move assignment
+  {
+    auto read_guard1 = bpm->FetchPageRead(page_id_temp);
+    auto read_guard2 = bpm->FetchPageRead(page_id_temp_a);
+    EXPECT_EQ(2, page0->GetPinCount());
+    EXPECT_EQ(2, page1->GetPinCount());
+    read_guard2 = std::move(read_guard1);
+    EXPECT_EQ(2, page0->GetPinCount());
+    EXPECT_EQ(1, page1->GetPinCount());
+  }
+  EXPECT_EQ(1, page0->GetPinCount());
+  // test the move constructor
+  {
+    auto read_guard1 = bpm->FetchPageRead(page_id_temp);
+    auto read_guard2(std::move(read_guard1));
+    auto read_guard3(std::move(read_guard2));
+    EXPECT_EQ(2, page0->GetPinCount());
+  }
+  EXPECT_EQ(1, page0->GetPinCount());
+  EXPECT_EQ(page_id_temp, page0->GetPageId());
+
+  // repeat drop
+  guarded_page.Drop();
+  EXPECT_EQ(0, page0->GetPinCount());
+  guarded_page.Drop();
+  EXPECT_EQ(0, page0->GetPinCount());
+
+  disk_manager->ShutDown();
 }
 
 }  // namespace bustub

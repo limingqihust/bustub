@@ -71,29 +71,23 @@ class BPlusTree {
 
   auto IsEmpty() const -> bool;
   auto Insert(const KeyType &key, const ValueType &value, Transaction *txn = nullptr) -> bool;
-  void StartNewTree(const KeyType& key,const ValueType& value);
-  auto InsertIntoLeaf(const KeyType& key,const ValueType& value) -> bool;
+  void StartNewTree(const KeyType &key, const ValueType &value);
+  auto InsertIntoLeaf(const KeyType &key, const ValueType &value) -> bool;
   void InsertIntoParent(BPlusTreePage *old_tree_page, const KeyType &key, BPlusTreePage *new_tree_page);
   template <typename N>
-  auto Split(N* tree_page) -> N *;
+  auto Split(N *tree_page) -> N *;
 
   // Remove a key and its value from this B+ tree.
   void Remove(const KeyType &key, Transaction *txn);
   auto GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn = nullptr) -> bool;
-  auto FindLeafPage(const KeyType& key) const ->Page*;
-  auto FindLeftLeafPage() const -> Page*;
+  auto FindLeafPage(const KeyType &key) const -> Page *;
+  auto FindLeftLeafPage() const -> Page *;
   auto GetRootPageId() const -> page_id_t;
   void SetRootPageId(page_id_t root_page_id);
-
-
 
   auto Begin() -> INDEXITERATOR_TYPE;
   auto End() -> INDEXITERATOR_TYPE;
   auto Begin(const KeyType &key) -> INDEXITERATOR_TYPE;
-
-
-
-
 
   // Print the B+ tree
   void Print(BufferPoolManager *bpm);

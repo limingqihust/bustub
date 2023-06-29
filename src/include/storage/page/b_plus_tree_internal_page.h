@@ -38,16 +38,17 @@ class BPlusTreeInternalPage : public BPlusTreePage {
  public:
   BPlusTreeInternalPage() = delete;
   BPlusTreeInternalPage(const BPlusTreeInternalPage &other) = delete;
-  void Init(int max_size = INTERNAL_PAGE_SIZE,page_id_t page_id=INVALID_PAGE_ID,page_id_t parent_page_id=INVALID_PAGE_ID);
+  void Init(int max_size = INTERNAL_PAGE_SIZE, page_id_t page_id = INVALID_PAGE_ID,
+            page_id_t parent_page_id = INVALID_PAGE_ID);
   auto KeyAt(int index) const -> KeyType;
   void SetKeyAt(int index, const KeyType &key);
   auto ValueIndex(const ValueType &value) const -> int;
   auto ValueAt(int index) const -> ValueType;
-  auto Lookup(const KeyType& key,const KeyComparator &comparator) const ->page_id_t;
-  void MoveHalfTo(BPlusTreeInternalPage* recipient,BufferPoolManager* bpm);
-  void CopyNFrom(MappingType* items,int size,BufferPoolManager* bpm);
-  void InsertNodeAfter(const ValueType& old_value,const KeyType& new_key,const ValueType& new_value);
-  void PopulateNewRoot(const ValueType& old_value,const KeyType& new_key,const ValueType& new_value);
+  auto Lookup(const KeyType &key, const KeyComparator &comparator) const -> page_id_t;
+  void MoveHalfTo(BPlusTreeInternalPage *recipient, BufferPoolManager *bpm);
+  void CopyNFrom(MappingType *items, int size, BufferPoolManager *bpm);
+  void InsertNodeAfter(const ValueType &old_value, const KeyType &new_key, const ValueType &new_value);
+  void PopulateNewRoot(const ValueType &old_value, const KeyType &new_key, const ValueType &new_value);
 
   /**
    * @brief For test only, return a string representing all keys in
