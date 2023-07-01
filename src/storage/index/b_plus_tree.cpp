@@ -20,6 +20,7 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, page_id_t header_page_id, BufferPool
   WritePageGuard guard = bpm_->FetchPageWrite(header_page_id_);
   auto root_page = guard.AsMut<BPlusTreeHeaderPage>();
   root_page->root_page_id_ = INVALID_PAGE_ID;
+  LOG_INFO("# BPlusTree : leaf_max_size : %d internal_max_size : %d", internal_max_size, leaf_max_size);
 }
 
 /*
@@ -36,8 +37,8 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool {
 
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn) -> bool {
+  LOG_INFO("# GetValue : key %ld", key.ToString());
   latch_.RLock();
-
   bool found_flag = false;
   Page *page = FindLeafPage(key);
   auto leaf_page = reinterpret_cast<LeafPage *>(page->GetData());
@@ -103,6 +104,7 @@ auto BPLUSTREE_TYPE::FindLeftLeafPage() const -> Page * {
 /*****************************************************************************
  * INSERTION
  *****************************************************************************/
+
 /*
  * Insert constant key & value pair into b+ tree
  * if current tree is empty, start new tree, update root page id and insert
@@ -112,6 +114,7 @@ auto BPLUSTREE_TYPE::FindLeftLeafPage() const -> Page * {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *txn) -> bool {
+  LOG_INFO("# Insert :  key %ld", key.ToString());
   latch_.WLock();
   if (IsEmpty()) {
     StartNewTree(key, value);
@@ -234,6 +237,7 @@ auto BPLUSTREE_TYPE::Split(N *tree_page) -> N * {
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
+  LOG_INFO("# Remove : key %ld", key.ToString());
   latch_.WLock();
   if (IsEmpty()) {  // 树为空 直接返回
     latch_.WUnlock();
@@ -242,7 +246,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   Page *page = FindLeafPage(key);
   auto leaf_page = reinterpret_cast<LeafPage *>(page->GetData());
   assert(leaf_page != nullptr);
-
+  LOG_INFO("# Remove : item to be removed is in page %d", leaf_page->GetPageId());
   int remove_index = leaf_page->KeyIndex(key, comparator_);
   if (comparator_(leaf_page->KeyAt(remove_index), key) != 0 || remove_index >= leaf_page->GetSize()) {  // 该key不存在
     bpm_->UnpinPage(page->GetPageId(), false);
@@ -250,11 +254,13 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
     return;
   }
   int leaf_page_new_size = leaf_page->RemoveAndDeleteRecord(key, comparator_);
+
   if (leaf_page_new_size >= leaf_page->GetMinSize()) {  // 删除后size大于最小大小
     bpm_->UnpinPage(page->GetPageId(), true);
     latch_.WUnlock();
     return;
   }
+  LOG_INFO("# Remove : after remove,leaf_page_new_size is %d,need to coalesce or redistribute", leaf_page_new_size);
   CoalesceOrRedistribute(leaf_page);  // 删除后该叶子节点的size小于最大大小 需要重分配或者合并
   bpm_->UnpinPage(page->GetPageId(), true);
   latch_.WUnlock();
@@ -275,11 +281,15 @@ INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
 void BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node) {
   if (node->IsRootPage()) {
-    //    AdjustRoot(node);
+    LOG_INFO("# CoalesceOrRedistribute : need to AdjustRoot");
+    if (node->GetSize() == 1 && !node->IsLeafPage()) {
+      AdjustRoot(node);
+    }
     return;
   }
   N *sibling_node;
-  bool is_right_brother = FindSibling(node, sibling_node);          // 兄弟节点已被取到buffer pool中
+  bool is_right_brother = FindSibling(node, sibling_node);  // 兄弟节点已被取到buffer pool中
+  LOG_INFO("# CoalesceOrRedistribute : sibling_node chosen is page %d", sibling_node->GetPageId());
   if (sibling_node->GetSize() >= sibling_node->GetMinSize() + 1) {  // 从兄弟节点借一个节点 并更新父节点
     if (is_right_brother) {  // node ----> sibling node 将sibling中的节点移动到this节点中
       Redistribute(node, sibling_node, is_right_brother);
@@ -335,6 +345,7 @@ auto BPLUSTREE_TYPE::FindSibling(N *node, N *&sibling) -> bool {
 INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
 void BPLUSTREE_TYPE::Coalesce(N *left_node, N *right_node) {
+  LOG_INFO("# Coalesce : coalesce page %d to page %d", right_node->GetPageId(), left_node->GetPageId());
   page_id_t parent_page_id = right_node->GetParentPageId();
   Page *parent_page = bpm_->FetchPage(parent_page_id);
   assert(parent_page != nullptr);
@@ -355,6 +366,7 @@ INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
 void BPLUSTREE_TYPE::Redistribute(N *left_node, N *right_node, bool is_right_brother) {
   if (is_right_brother) {  // right_node移动一个与元素到left_node             left_node <---- right_node
+    LOG_INFO("# Redistribute : page %d lend first item to page %d", right_node->GetPageId(), left_node->GetPageId());
     assert(left_node->GetSize() == left_node->GetMinSize() - 1);
     assert(right_node->GetSize() >= right_node->GetMinSize() + 1);
     right_node->MoveFirstToEndOf(left_node, bpm_);
@@ -372,6 +384,7 @@ void BPLUSTREE_TYPE::Redistribute(N *left_node, N *right_node, bool is_right_bro
     parent_tree_page->SetKeyAt(alter_index, right_node->KeyAt(0));
     bpm_->UnpinPage(parent_page_id, true);
   } else {  // left_node移动一个元素到right_node               left_node---->right_node
+    LOG_INFO("# Redistribute : page %d lend last item to page %d", left_node->GetPageId(), right_node->GetPageId());
     assert(left_node->GetSize() >= left_node->GetMinSize() + 1);
     assert(right_node->GetSize() == right_node->GetMinSize() - 1);
     left_node->MoveLastToFrontOf(right_node, bpm_);
@@ -392,7 +405,17 @@ void BPLUSTREE_TYPE::Redistribute(N *left_node, N *right_node, bool is_right_bro
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-void BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_page) {}
+void BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_page) {
+  assert(old_root_page->GetSize() == 1);
+  auto old_root_tree_page = reinterpret_cast<InternalPage *>(old_root_page);
+  page_id_t new_root_page_id = old_root_tree_page->ValueAt(0);
+  Page *new_root_page = bpm_->FetchPage(new_root_page_id);
+  auto new_root_tree_page = reinterpret_cast<BPlusTreePage *>(new_root_page->GetData());
+  assert(new_root_tree_page != nullptr);
+  new_root_tree_page->SetParentPageId(INVALID_PAGE_ID);
+  SetRootPageId(new_root_page_id);
+  bpm_->UnpinPage(new_root_page_id, true);
+}
 
 /*****************************************************************************
  * INDEX ITERATOR

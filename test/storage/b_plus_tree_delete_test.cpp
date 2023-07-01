@@ -92,6 +92,8 @@ TEST(BPlusTreeTests, DeleteTest1) {
 
 TEST(BPlusTreeTests, DeleteTest2) {
   // create KeyComparator and index schema
+  const int interal_max_size = 3;
+  const int leaf_max_size = 2;
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
 
@@ -101,7 +103,8 @@ TEST(BPlusTreeTests, DeleteTest2) {
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator,
+                                                           leaf_max_size, interal_max_size);
   GenericKey<8> index_key;
   RID rid;
   // create transaction
@@ -126,11 +129,12 @@ TEST(BPlusTreeTests, DeleteTest2) {
     int64_t value = key & 0xFFFFFFFF;
     EXPECT_EQ(rids[0].GetSlotNum(), value);
   }
-
+  tree.Draw(bpm, output_filename);
   std::vector<int64_t> remove_keys = {1, 5, 3, 4};
   for (auto key : remove_keys) {
     index_key.SetFromInteger(key);
     tree.Remove(index_key, transaction);
+    tree.Draw(bpm, output_filename);
   }
 
   int64_t size = 0;
