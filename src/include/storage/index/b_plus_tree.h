@@ -85,11 +85,23 @@ class BPlusTree {
   auto GetRootPageId() const -> page_id_t;
   void SetRootPageId(page_id_t root_page_id);
 
+  template <typename N>
+  void CoalesceOrRedistribute(N *node);
+
+  template <typename N>
+  auto FindSibling(N *node, N *&sibling) -> bool;
+
+  template <typename N>
+  void Coalesce(N *left_node, N *right_node);
+
+  template <typename N>
+  void Redistribute(N *left_node, N *right_node, bool is_right_brother);
+
+  void AdjustRoot(BPlusTreePage *old_root_page);
+
   auto Begin() -> INDEXITERATOR_TYPE;
   auto End() -> INDEXITERATOR_TYPE;
   auto Begin(const KeyType &key) -> INDEXITERATOR_TYPE;
-
-
 
   // Print the B+ tree
   void Print(BufferPoolManager *bpm);
@@ -138,6 +150,7 @@ class BPlusTree {
   int leaf_max_size_;
   int internal_max_size_;
   page_id_t header_page_id_;
+  ReaderWriterLatch latch_;
 };
 
 /**

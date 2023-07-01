@@ -50,12 +50,22 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   auto GetNextPageId() const -> page_id_t;
   void SetNextPageId(page_id_t next_page_id);
   auto KeyAt(int index) const -> KeyType;
+  void SetKeyAt(int index, const KeyType &key);
   auto ValueAt(int index) const -> ValueType;
+  auto ValueIndex(const ValueType &value) const -> int;
   auto KeyIndex(const KeyType &key, const KeyComparator &comparator) const -> int;
   auto GetItem(int index) -> MappingType &;
   auto Insert(const KeyType &key, const ValueType &value, const KeyComparator &comparator) -> int;
   void MoveHalfTo(BPlusTreeLeafPage *recipient, BufferPoolManager *bpm);
   void CopyNFrom(MappingType *items, int size, BufferPoolManager *bpm);
+
+  auto RemoveAndDeleteRecord(const KeyType &key, const KeyComparator &comparator) -> int;
+  void MoveAllTo(BPlusTreeLeafPage *recipient, BufferPoolManager *bpm);
+  void MoveFirstToEndOf(BPlusTreeLeafPage *recipient, BufferPoolManager *bpm);
+  void MoveLastToFrontOf(BPlusTreeLeafPage *recipient, BufferPoolManager *bpm);
+  void CopyLastFrom(const MappingType &item, BufferPoolManager *bpm);
+  void CopyFirstFrom(const MappingType &item, BufferPoolManager *bpm);
+
   /**
    * @brief for test only return a string representing all keys in
    * this leaf page formatted as "(key1,key2,key3,...)"

@@ -60,6 +60,7 @@ class BPlusTreePage {
   void SetParentPageId(page_id_t parent_page_id);
   auto GetPageId() const -> page_id_t;
   void SetPageId(page_id_t page_id);
+  auto IsRootPage() const -> bool { return parent_page_id_ == INVALID_PAGE_ID; }
 
  private:
   // member variable, attributes that both internal and leaf page share

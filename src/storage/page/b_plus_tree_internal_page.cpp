@@ -123,6 +123,111 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::PopulateNewRoot(const ValueType &old_value,
   SetSize(2);
 }
 
+/*
+ * recipient ----> this
+ * 将this结点的所有key-value对移动到recipient节点的尾部
+ * this节点和recipient节点均已在buffer pool中
+ * 需要更新this结点的子结点的父节点属性
+ * 需要更新recipient节点的size
+ * 需要删除this节点 在后续完成中完成
+ */
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveAllTo(BPlusTreeInternalPage *recipient, BufferPoolManager *bpm) {
+  assert(recipient->GetSize() + GetSize() <= GetMaxSize());
+  page_id_t recipient_page_id = recipient->GetPageId();
+  int this_old_size = GetSize();
+  int recipient_old_size = recipient->GetSize();
+  for (int i = 0; i < this_old_size; i++) {  // 需要更新子结点的父节点属性
+    recipient->array_[recipient_old_size + i] = array_[i];
+    Page *child_page = bpm->FetchPage(array_[i].second);
+    assert(child_page != nullptr);
+    auto child_tree_page = reinterpret_cast<BPlusTreePage *>(child_page->GetData());
+    assert(child_tree_page != nullptr);
+    child_tree_page->SetParentPageId(recipient_page_id);
+    bpm->UnpinPage(child_page->GetPageId(), true);
+  }
+  SetSize(0);
+  recipient->IncreaseSize(this_old_size);
+}
+
+/*
+ * recipient ----- this
+ * 将this的第一个key-value对移动到recipient节点的尾部
+ * this和recipient均已在buffer pool中
+ * 用于重分配时从右节点借一个元素到左节点
+ * 更改该节点的父节点在CopyLastFrom()中进行
+ * 需要更改this节点的父节点 在Redistribute()中进行
+ */
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFirstToEndOf(BPlusTreeInternalPage *recipient, BufferPoolManager *bpm) {
+  int this_old_size = GetSize();
+  MappingType &item = array_[0];
+  recipient->CopyLastFrom(item, bpm);            // 将首节点移动到recipient节点中
+  for (int i = 0; i < this_old_size - 1; i++) {  // 将后面的前移一位
+    array_[i] = array_[i + 1];
+  }
+  IncreaseSize(-1);  // 更新this节点的size
+}
+
+/*
+ * this ----> recipient
+ * 将this节点的最后一个key-value对移动到recipient节点的头部
+ * 需要更改移动节点的父节点 在CopyFirstFrom中进行
+ * 需要更改recipient的父节点 在Redistribute()函数中进行
+ */
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveLastToFrontOf(BPlusTreeInternalPage *recipient, BufferPoolManager *bpm) {
+  MappingType &item = array_[GetSize() - 1];
+  recipient->CopyFirstFrom(item, bpm);
+  IncreaseSize(-1);
+}
+
+/*
+ * 从item处复制一个节点到this节点的尾部
+ * 更新本结点的size
+ * 更新移动节点的父节点
+ */
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyLastFrom(const MappingType &item, BufferPoolManager *bpm) {
+  int old_size = GetSize();
+  array_[old_size] = item;
+  IncreaseSize(1);
+  Page *item_page = bpm->FetchPage(item.second);
+  assert(item_page != nullptr);
+  auto item_tree_page = reinterpret_cast<BPlusTreeInternalPage *>(item_page->GetData());
+  assert(item_tree_page != nullptr);
+  item_tree_page->SetParentPageId(GetPageId());
+  bpm->UnpinPage(item_page->GetPageId(), true);
+}
+
+/*
+ * 从item处复制一个节点到this节点的头部
+ */
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::CopyFirstFrom(const MappingType &item, BufferPoolManager *bpm) {
+  int old_size = GetSize();
+  page_id_t this_page_id = GetPageId();
+  for (int i = old_size; i >= 1; i--) {
+    array_[i] = array_[i - 1];
+  }
+  array_[0] = item;
+  IncreaseSize(1);
+  Page *item_page = bpm->FetchPage(item.second);
+  assert(item_page != nullptr);
+  auto item_tree_page = reinterpret_cast<BPlusTreeInternalPage *>(item_page->GetData());
+  assert(item_tree_page != nullptr);
+  item_tree_page->SetParentPageId(this_page_id);
+  bpm->UnpinPage(item_page->GetPageId(), true);
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::RemoveAndDeleteRecord(int index) {
+  int old_size = GetSize();
+  for (int i = index; i < old_size - 1; i++) {
+    array_[i] = array_[i + 1];
+  }
+  IncreaseSize(-1);
+}
 // valuetype for internalNode should be page id_t
 template class BPlusTreeInternalPage<GenericKey<4>, page_id_t, GenericComparator<4>>;
 template class BPlusTreeInternalPage<GenericKey<8>, page_id_t, GenericComparator<8>>;

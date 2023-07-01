@@ -35,10 +35,12 @@ auto BPlusTreePage::GetMaxSize() const -> int { return max_size_; }
 void BPlusTreePage::SetMaxSize(int size) { max_size_ = size; }
 
 /*
- * Helper method to get min page size
- * Generally, min page size == max page size / 2
+ * 应该大于等于min size
  */
-auto BPlusTreePage::GetMinSize() const -> int { return max_size_ / 2; }
+auto BPlusTreePage::GetMinSize() const -> int {
+  return (max_size_ + 1) / 2;
+  //  return max_size_ / 2;
+}
 
 auto BPlusTreePage::GetParentPageId() const -> page_id_t { return parent_page_id_; }
 

@@ -41,18 +41,14 @@ TEST(BPlusTreeTests, DeleteTest1) {
   auto *transaction = new Transaction(0);
 
   std::vector<int64_t> keys = {1, 2, 3, 4, 5};
-  LOG_INFO("# begin to insert");
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
     tree.Insert(index_key, rid, transaction);
   }
-  LOG_INFO("# insert done");
-  std::string out_file_name = "output.dot";
-  tree.Draw(bpm, out_file_name);
+
   std::vector<RID> rids;
-  LOG_INFO("# begein to lookup");
   for (auto key : keys) {
     rids.clear();
     index_key.SetFromInteger(key);
@@ -62,13 +58,11 @@ TEST(BPlusTreeTests, DeleteTest1) {
     int64_t value = key & 0xFFFFFFFF;
     EXPECT_EQ(rids[0].GetSlotNum(), value);
   }
-  LOG_INFO("# lookup done");
+
   std::vector<int64_t> remove_keys = {1, 5};
   for (auto key : remove_keys) {
     index_key.SetFromInteger(key);
     tree.Remove(index_key, transaction);
-    index_key.SetFromInteger(key);
-    tree.Insert(index_key, rid, transaction);
   }
 
   int64_t size = 0;
@@ -96,7 +90,7 @@ TEST(BPlusTreeTests, DeleteTest1) {
   delete bpm;
 }
 
-TEST(BPlusTreeTests, DISABLED_DeleteTest2) {
+TEST(BPlusTreeTests, DeleteTest2) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -121,6 +115,7 @@ TEST(BPlusTreeTests, DISABLED_DeleteTest2) {
     tree.Insert(index_key, rid, transaction);
   }
 
+  std::string output_filename = "output.dot";
   std::vector<RID> rids;
   for (auto key : keys) {
     rids.clear();
@@ -162,4 +157,88 @@ TEST(BPlusTreeTests, DISABLED_DeleteTest2) {
   delete transaction;
   delete bpm;
 }
+
+TEST(BPlusTreeTests, MyTest) {
+  const int INTERNAL_NODE_SIZE = 4;  // Maximum size of internal nodes
+  const int LEAF_NODE_SIZE = 2;      // Maximum size of leaf nodes
+  std::string output_filename = "output.dot";
+  // Create KeyComparator and index schema
+  auto key_schema = ParseCreateStatement("a bigint");
+  GenericComparator<8> comparator(key_schema.get());
+
+  auto disk_manager = std::make_unique<DiskManagerUnlimitedMemory>();
+  auto *bpm = new BufferPoolManager(50, disk_manager.get());
+
+  // Create and fetch header_page
+  page_id_t page_id;
+  auto header_page = bpm->NewPage(&page_id);
+
+  // Create B+ tree
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator,
+                                                           LEAF_NODE_SIZE, INTERNAL_NODE_SIZE);
+
+  // Create transaction
+  auto *transaction = new Transaction(0);
+
+  // Insert key-value pairs into the tree
+  std::vector<int64_t> keys = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+  for (auto key : keys) {
+    int64_t value = key & 0xFFFFFFFF;
+    RID rid(static_cast<int32_t>(key >> 32), value);
+    GenericKey<8> index_key;
+    index_key.SetFromInteger(key);
+    tree.Insert(index_key, rid, transaction);
+  }
+
+  // Verify the correctness of inserted pairs
+  for (auto key : keys) {
+    std::vector<RID> rids;
+    GenericKey<8> index_key;
+    index_key.SetFromInteger(key);
+    bool is_present = tree.GetValue(index_key, &rids);
+    EXPECT_TRUE(is_present);
+    EXPECT_EQ(rids.size(), 1);
+    int64_t value = key & 0xFFFFFFFF;
+    EXPECT_EQ(rids[0].GetSlotNum(), value);
+  }
+
+  tree.Draw(bpm, output_filename);
+
+  // Remove specific keys from the tree
+  std::vector<int64_t> remove_keys = {1, 5, 3, 7, 10, 14};
+  for (auto key : remove_keys) {
+    GenericKey<8> index_key;
+    index_key.SetFromInteger(key);
+    tree.Remove(index_key, transaction);
+    tree.Draw(bpm, output_filename);
+  }
+
+  // Verify the correctness of remaining pairs
+  int64_t size = 0;
+  for (auto key : keys) {
+    std::vector<RID> rids;
+    GenericKey<8> index_key;
+    index_key.SetFromInteger(key);
+    bool is_present = tree.GetValue(index_key, &rids);
+
+    if (!is_present) {
+      // Verify that the key has been removed from the tree
+      EXPECT_NE(std::find(remove_keys.begin(), remove_keys.end(), key), remove_keys.end());
+    } else {
+      // Verify the correctness of remaining pairs
+      EXPECT_EQ(rids.size(), 1);
+      EXPECT_EQ(rids[0].GetPageId(), 0);
+      EXPECT_EQ(rids[0].GetSlotNum(), key);
+      size += 1;
+    }
+  }
+
+  // Verify the final size of the tree
+  EXPECT_EQ(size, keys.size() - remove_keys.size());
+
+  bpm->UnpinPage(HEADER_PAGE_ID, true);
+  delete transaction;
+  delete bpm;
+}
+
 }  // namespace bustub
