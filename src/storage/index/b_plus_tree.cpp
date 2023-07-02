@@ -163,7 +163,7 @@ auto BPLUSTREE_TYPE::InsertIntoLeaf(const KeyType &key, const ValueType &value) 
     bpm_->UnpinPage(page->GetPageId(), false);
     return false;
   }
-  if (new_size < leaf_max_size_) {  // 节点未满
+  if (new_size < leaf_max_size_ - 1) {  // 节点未满
     bpm_->UnpinPage(page->GetPageId(), true);
     return true;
   }
