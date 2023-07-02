@@ -172,7 +172,7 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::MoveFirstToEndOf(BPlusTreeLeafPage *recipient, 
   MappingType &item = array_[0];
   recipient->CopyLastFrom(item, bpm);
   for (int i = 0; i < this_old_size - 1; i++) {
-    array_[i + 1] = array_[i];
+    array_[i] = array_[i + 1];
   }
   IncreaseSize(-1);
 }

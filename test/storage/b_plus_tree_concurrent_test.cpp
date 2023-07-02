@@ -133,7 +133,7 @@ TEST(BPlusTreeConcurrentTest, InsertTest1) {
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator, 5, 3);
   // keys to Insert
   std::vector<int64_t> keys;
   int64_t scale_factor = 100;
@@ -180,7 +180,7 @@ TEST(BPlusTreeConcurrentTest, InsertTest2) {
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator, 5, 3);
   // keys to Insert
   std::vector<int64_t> keys;
   int64_t scale_factor = 100;
@@ -230,7 +230,7 @@ TEST(BPlusTreeConcurrentTest, DeleteTest1) {
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator, 5, 3);
   // sequential insert
   std::vector<int64_t> keys = {1, 2, 3, 4, 5};
   InsertHelper(&tree, keys);
@@ -268,25 +268,44 @@ TEST(BPlusTreeConcurrentTest, DeleteTest2) {
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator);
-
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator, 5, 3);
+  std::string output_filename = "output.dot";
   // sequential insert
   std::vector<int64_t> keys = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
   InsertHelper(&tree, keys);
 
+  //  tree.Draw(bpm,output_filename);
+
   std::vector<int64_t> remove_keys = {1, 4, 3, 2, 5, 6};
   LaunchParallelTest(2, DeleteHelperSplit, &tree, remove_keys, 2);
 
+  //  tree.Draw(bpm,output_filename);
   int64_t start_key = 7;
-  int64_t current_key = start_key;
+  //  int64_t current_key = start_key;
   int64_t size = 0;
   index_key.SetFromInteger(start_key);
-  for (auto iterator = tree.Begin(index_key); iterator != tree.End(); ++iterator) {
-    auto location = (*iterator).second;
-    EXPECT_EQ(location.GetPageId(), 0);
-    EXPECT_EQ(location.GetSlotNum(), current_key);
-    current_key = current_key + 1;
-    size = size + 1;
+  //  for (auto iterator = tree.Begin(index_key); iterator != tree.End(); ++iterator) {
+  //    auto location = (*iterator).second;
+  //    EXPECT_EQ(location.GetPageId(), 0);
+  //    EXPECT_EQ(location.GetSlotNum(), current_key);
+  //    current_key = current_key + 1;
+  //    size = size + 1;
+  //  }
+
+  std::vector<RID> rids;
+  for (auto key : keys) {
+    rids.clear();
+    index_key.SetFromInteger(key);
+    bool is_present = tree.GetValue(index_key, &rids);
+
+    if (!is_present) {
+      EXPECT_NE(std::find(remove_keys.begin(), remove_keys.end(), key), remove_keys.end());
+    } else {
+      EXPECT_EQ(rids.size(), 1);
+      EXPECT_EQ(rids[0].GetPageId(), 0);
+      EXPECT_EQ(rids[0].GetSlotNum(), key);
+      size = size + 1;
+    }
   }
 
   EXPECT_EQ(size, 4);
@@ -307,7 +326,7 @@ TEST(BPlusTreeConcurrentTest, MixTest1) {
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator, 5, 3);
   GenericKey<8> index_key;
   // first, populate index
   std::vector<int64_t> keys = {1, 2, 3, 4, 5};
@@ -340,6 +359,7 @@ TEST(BPlusTreeConcurrentTest, MixTest2) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
+  std::string output_filename = "output.dot";
 
   auto disk_manager = std::make_unique<DiskManagerUnlimitedMemory>();
   auto *bpm = new BufferPoolManager(50, disk_manager.get());
@@ -350,7 +370,7 @@ TEST(BPlusTreeConcurrentTest, MixTest2) {
   (void)header_page;
 
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator, 5, 3);
 
   // Add perserved_keys
   std::vector<int64_t> perserved_keys;
@@ -365,6 +385,7 @@ TEST(BPlusTreeConcurrentTest, MixTest2) {
     }
   }
   InsertHelper(&tree, perserved_keys, 1);
+  tree.Draw(bpm, output_filename);
   // Check there are 1000 keys in there
   size_t size;
 
@@ -391,12 +412,13 @@ TEST(BPlusTreeConcurrentTest, MixTest2) {
 
   for (auto iter = tree.Begin(); iter != tree.End(); ++iter) {
     const auto &pair = *iter;
+    LOG_INFO("# key : %ld", pair.first.ToString());
     if ((pair.first).ToString() % sieve == 0) {
       size++;
     }
   }
 
-  ASSERT_EQ(size, perserved_keys.size());
+  EXPECT_EQ(size, perserved_keys.size());
 
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete bpm;

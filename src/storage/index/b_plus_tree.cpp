@@ -37,13 +37,14 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool {
 
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn) -> bool {
-  LOG_INFO("# GetValue : key %ld", key.ToString());
   latch_.RLock();
+  LOG_INFO("# GetValue : key %ld", key.ToString());
   bool found_flag = false;
   Page *page = FindLeafPage(key);
   auto leaf_page = reinterpret_cast<LeafPage *>(page->GetData());
   if (leaf_page == nullptr) {
     bpm_->UnpinPage(page->GetPageId(), false);
+    LOG_INFO("# GetValue : key %ld done", key.ToString());
     latch_.RUnlock();
     return false;
   }
@@ -54,6 +55,7 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
     }
   }
   bpm_->UnpinPage(page->GetPageId(), false);
+  LOG_INFO("# GetValue : key %ld done", key.ToString());
   latch_.RUnlock();
   return found_flag;
   //  Context ctx;
@@ -96,7 +98,7 @@ auto BPLUSTREE_TYPE::FindLeftLeafPage() const -> Page * {
       return page;
     }
     auto internal_page = reinterpret_cast<InternalPage *>(tree_page);
-    page_id = internal_page->ValueAt(1);
+    page_id = internal_page->ValueAt(0);
     bpm_->UnpinPage(page->GetPageId(), false);
   }
 }
@@ -114,14 +116,16 @@ auto BPLUSTREE_TYPE::FindLeftLeafPage() const -> Page * {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *txn) -> bool {
-  LOG_INFO("# Insert :  key %ld", key.ToString());
   latch_.WLock();
+  LOG_INFO("# Insert :  key %ld value %s", key.ToString(), value.ToString().c_str());
   if (IsEmpty()) {
     StartNewTree(key, value);
+    LOG_INFO("# Insert : key %ld done", key.ToString());
     latch_.WUnlock();
     return true;
   }
   auto result = InsertIntoLeaf(key, value);
+  LOG_INFO("# Insert : key %ld done", key.ToString());
   latch_.WUnlock();
   return result;
   //  Context ctx;
@@ -237,19 +241,21 @@ auto BPLUSTREE_TYPE::Split(N *tree_page) -> N * {
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
-  LOG_INFO("# Remove : key %ld", key.ToString());
   latch_.WLock();
+  LOG_INFO("# Remove : key %ld", key.ToString());
   if (IsEmpty()) {  // 树为空 直接返回
+    LOG_INFO("# Remove : key %ld done ", key.ToString());
     latch_.WUnlock();
     return;
   }
   Page *page = FindLeafPage(key);
   auto leaf_page = reinterpret_cast<LeafPage *>(page->GetData());
   assert(leaf_page != nullptr);
-  LOG_INFO("# Remove : item to be removed is in page %d", leaf_page->GetPageId());
+  //  LOG_INFO("# Remove : item to be removed is in page %d", leaf_page->GetPageId());
   int remove_index = leaf_page->KeyIndex(key, comparator_);
   if (comparator_(leaf_page->KeyAt(remove_index), key) != 0 || remove_index >= leaf_page->GetSize()) {  // 该key不存在
     bpm_->UnpinPage(page->GetPageId(), false);
+    LOG_INFO("# Remove : key %ld done", key.ToString());
     latch_.WUnlock();
     return;
   }
@@ -257,12 +263,14 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
 
   if (leaf_page_new_size >= leaf_page->GetMinSize()) {  // 删除后size大于最小大小
     bpm_->UnpinPage(page->GetPageId(), true);
+    LOG_INFO("# Remove : key %ld done", key.ToString());
     latch_.WUnlock();
     return;
   }
-  LOG_INFO("# Remove : after remove,leaf_page_new_size is %d,need to coalesce or redistribute", leaf_page_new_size);
+  //  LOG_INFO("# Remove : after remove,leaf_page_new_size is %d,need to coalesce or redistribute", leaf_page_new_size);
   CoalesceOrRedistribute(leaf_page);  // 删除后该叶子节点的size小于最大大小 需要重分配或者合并
   bpm_->UnpinPage(page->GetPageId(), true);
+  LOG_INFO("# Remove : key %ld done", key.ToString());
   latch_.WUnlock();
   //  Context ctx;
   //  (void)ctx;
@@ -281,7 +289,7 @@ INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
 void BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node) {
   if (node->IsRootPage()) {
-    LOG_INFO("# CoalesceOrRedistribute : need to AdjustRoot");
+    //    LOG_INFO("# CoalesceOrRedistribute : need to AdjustRoot");
     if (node->GetSize() == 1 && !node->IsLeafPage()) {
       AdjustRoot(node);
     }
@@ -289,7 +297,7 @@ void BPLUSTREE_TYPE::CoalesceOrRedistribute(N *node) {
   }
   N *sibling_node;
   bool is_right_brother = FindSibling(node, sibling_node);  // 兄弟节点已被取到buffer pool中
-  LOG_INFO("# CoalesceOrRedistribute : sibling_node chosen is page %d", sibling_node->GetPageId());
+  //  LOG_INFO("# CoalesceOrRedistribute : sibling_node chosen is page %d", sibling_node->GetPageId());
   if (sibling_node->GetSize() >= sibling_node->GetMinSize() + 1) {  // 从兄弟节点借一个节点 并更新父节点
     if (is_right_brother) {  // node ----> sibling node 将sibling中的节点移动到this节点中
       Redistribute(node, sibling_node, is_right_brother);
@@ -345,7 +353,7 @@ auto BPLUSTREE_TYPE::FindSibling(N *node, N *&sibling) -> bool {
 INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
 void BPLUSTREE_TYPE::Coalesce(N *left_node, N *right_node) {
-  LOG_INFO("# Coalesce : coalesce page %d to page %d", right_node->GetPageId(), left_node->GetPageId());
+  //  LOG_INFO("# Coalesce : coalesce page %d to page %d", right_node->GetPageId(), left_node->GetPageId());
   page_id_t parent_page_id = right_node->GetParentPageId();
   Page *parent_page = bpm_->FetchPage(parent_page_id);
   assert(parent_page != nullptr);
@@ -366,7 +374,8 @@ INDEX_TEMPLATE_ARGUMENTS
 template <typename N>
 void BPLUSTREE_TYPE::Redistribute(N *left_node, N *right_node, bool is_right_brother) {
   if (is_right_brother) {  // right_node移动一个与元素到left_node             left_node <---- right_node
-    LOG_INFO("# Redistribute : page %d lend first item to page %d", right_node->GetPageId(), left_node->GetPageId());
+    //    LOG_INFO("# Redistribute : page %d lend first item to page %d", right_node->GetPageId(),
+    //    left_node->GetPageId());
     assert(left_node->GetSize() == left_node->GetMinSize() - 1);
     assert(right_node->GetSize() >= right_node->GetMinSize() + 1);
     right_node->MoveFirstToEndOf(left_node, bpm_);
@@ -384,7 +393,8 @@ void BPLUSTREE_TYPE::Redistribute(N *left_node, N *right_node, bool is_right_bro
     parent_tree_page->SetKeyAt(alter_index, right_node->KeyAt(0));
     bpm_->UnpinPage(parent_page_id, true);
   } else {  // left_node移动一个元素到right_node               left_node---->right_node
-    LOG_INFO("# Redistribute : page %d lend last item to page %d", left_node->GetPageId(), right_node->GetPageId());
+            //    LOG_INFO("# Redistribute : page %d lend last item to page %d", left_node->GetPageId(),
+            //    right_node->GetPageId());
     assert(left_node->GetSize() >= left_node->GetMinSize() + 1);
     assert(right_node->GetSize() == right_node->GetMinSize() - 1);
     left_node->MoveLastToFrontOf(right_node, bpm_);
@@ -427,6 +437,7 @@ void BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_page) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
+  LOG_INFO("# Begin : first");
   Page *first_page = FindLeftLeafPage();
   assert(first_page != nullptr);
   auto first_tree_page = reinterpret_cast<LeafPage *>(first_page->GetData());
@@ -440,6 +451,7 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
+  LOG_INFO("# Begin : key %ld", key.ToString());
   Page *page = FindLeafPage(key);
   assert(page != nullptr);
   auto leaf_page = reinterpret_cast<LeafPage *>(page->GetData());
