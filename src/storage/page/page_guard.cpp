@@ -26,7 +26,6 @@ void BasicPageGuard::Drop() {
 auto BasicPageGuard::operator=(BasicPageGuard &&that) noexcept -> BasicPageGuard & {
   //  LOG_INFO("# BasicPageGuard::operator= : page_id %d", that.page_->GetPageId());
   if (this != &that) {
-    //    bpm_->UnpinPage(page_->GetPageId(), is_dirty_);
     Drop();
     bpm_ = that.bpm_;
     page_ = that.page_;
@@ -38,14 +37,9 @@ auto BasicPageGuard::operator=(BasicPageGuard &&that) noexcept -> BasicPageGuard
   return *this;
 }
 
-BasicPageGuard::~BasicPageGuard() {
-  //  LOG_INFO("# BasicPageGuard::~ : ");
-  Drop();
-}
+BasicPageGuard::~BasicPageGuard() { Drop(); }
 
-ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept : guard_(std::move(that.guard_)) {
-  //  LOG_INFO("# ReadPageGuard::move : ");
-}
+ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept : guard_(std::move(that.guard_)) {}
 
 auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & {
   //  LOG_INFO("# ReadPageGuard::operator= : ");
@@ -59,24 +53,14 @@ auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & 
 void ReadPageGuard::Drop() {
   //  LOG_INFO("# ReadPageGuard::Drop : ");
   if (guard_.page_ != nullptr) {
-    //    guard_.page_->RUnlatch();
-    //    guard_.Drop();
-    guard_.bpm_->UnpinPage(guard_.page_->GetPageId(), false);
-    guard_.page_->RUnlatch();  // release read lock
-    guard_.page_ = nullptr;
-    guard_.bpm_ = nullptr;
-    guard_.is_dirty_ = false;
+    guard_.page_->RUnlatch();
+    guard_.Drop();
   }
 }
 
-ReadPageGuard::~ReadPageGuard() {
-  //  LOG_INFO("# ReadPageGuard::~ : ");
-  Drop();
-}
+ReadPageGuard::~ReadPageGuard() { Drop(); }
 
-WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept : guard_(std::move(that.guard_)) {
-  //  LOG_INFO("# WritePageGuard::move : ");
-}
+WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept : guard_(std::move(that.guard_)) {}
 
 auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard & {
   //  LOG_INFO("# WritePageGuard::operator= : ");
@@ -90,21 +74,11 @@ auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard
 void WritePageGuard::Drop() {
   //  LOG_INFO("# WritePageGuard::Drop : ");
   if (guard_.page_ != nullptr) {
-    guard_.bpm_->UnpinPage(guard_.page_->GetPageId(), true);
-    guard_.page_->WUnlatch();  // release write lock
-    guard_.page_ = nullptr;
-    guard_.bpm_ = nullptr;
-    guard_.is_dirty_ = false;
+    guard_.page_->WUnlatch();
+    guard_.Drop();
   }
-  //  guard_.page_->WUnlatch();
-  //  guard_.Drop();
 }
 
-WritePageGuard::~WritePageGuard() {
-  //  LOG_INFO("# WritePageGuard::~ : ");
-  if (guard_.page_ != nullptr) {
-    Drop();
-  }
-}  // NOLINT
+WritePageGuard::~WritePageGuard() { Drop(); }
 
 }  // namespace bustub
