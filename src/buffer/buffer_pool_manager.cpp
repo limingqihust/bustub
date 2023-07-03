@@ -21,7 +21,7 @@ namespace bustub {
 BufferPoolManager::BufferPoolManager(size_t pool_size, DiskManager *disk_manager, size_t replacer_k,
                                      LogManager *log_manager)
     : pool_size_(pool_size), disk_manager_(disk_manager), log_manager_(log_manager) {
-//  LOG_INFO("# new BufferPoolManager : pool_size :%ld replacer_k : %ld", pool_size, replacer_k);
+  //  LOG_INFO("# new BufferPoolManager : pool_size :%ld replacer_k : %ld", pool_size, replacer_k);
   // we allocate a consecutive memory space for the buffer pool
   pages_ = new Page[pool_size_];
   replacer_ = std::make_unique<LRUKReplacer>(pool_size, replacer_k);
@@ -69,12 +69,12 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
 
   page_table_[new_page_id] = new_frame_id;
   *page_id = new_page_id;
-//  LOG_INFO("# NewPage : page_id %d in frame_id %d", new_page_id, new_frame_id);
+  //  LOG_INFO("# NewPage : page_id %d in frame_id %d", new_page_id, new_frame_id);
   return pages_ + new_frame_id;
 }
 
 auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType access_type) -> Page * {
-//  LOG_INFO("# FetchPage : page_id %d", page_id);
+  //  LOG_INFO("# FetchPage : page_id %d", page_id);
   std::lock_guard<std::mutex> lock(latch_);
   frame_id_t frame_id;
   if (page_table_.count(page_id) != 0) {  // 该page已经在buffer pool中
@@ -125,7 +125,7 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
 }
 
 auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unused]] AccessType access_type) -> bool {
-//  LOG_INFO("# UnpinPage : page_id %d is dirty %d", page_id, (int)is_dirty);
+  //  LOG_INFO("# UnpinPage : page_id %d is dirty %d", page_id, (int)is_dirty);
   std::lock_guard<std::mutex> lock(latch_);
   if (page_table_.count(page_id) == 0) {  // 没有该page
     return false;
@@ -139,7 +139,7 @@ auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unus
   }
 
   pages_[frame_id].pin_count_--;
-//  LOG_INFO("# UnPinPage : after UnPinPage pin_count_ of page_id %d is %d", page_id, pages_[frame_id].pin_count_);
+  //  LOG_INFO("# UnPinPage : after UnPinPage pin_count_ of page_id %d is %d", page_id, pages_[frame_id].pin_count_);
   if (pages_[frame_id].pin_count_ == 0) {
     replacer_->SetEvictable(frame_id, true);
   }
@@ -147,7 +147,7 @@ auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unus
 }
 
 auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool {
-//  LOG_INFO("# FlushPage : page_id %d", page_id);
+  //  LOG_INFO("# FlushPage : page_id %d", page_id);
   std::lock_guard<std::mutex> lock(latch_);
   if (page_table_.count(page_id) == 0) {
     return false;
@@ -159,14 +159,14 @@ auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool {
 }
 
 void BufferPoolManager::FlushAllPages() {
-//  LOG_INFO("# FlushAllPages:");
+  //  LOG_INFO("# FlushAllPages:");
   for (auto iter : page_table_) {
     FlushPage(iter.first);
   }
 }
 
 auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
-//  LOG_INFO("# DeletePage : page_id %d", page_id);
+  //  LOG_INFO("# DeletePage : page_id %d", page_id);
   std::lock_guard<std::mutex> lock(latch_);
   if (page_table_.count(page_id) == 0) {  // the page is not in buffer pool
     return true;
@@ -187,27 +187,27 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
 auto BufferPoolManager::AllocatePage() -> page_id_t { return next_page_id_++; }
 
 auto BufferPoolManager::FetchPageBasic(page_id_t page_id) -> BasicPageGuard {
-//  LOG_INFO("# FetchPageBasic : page_id %d", page_id);
+  //  LOG_INFO("# FetchPageBasic : page_id %d", page_id);
   auto page = FetchPage(page_id);
   return {this, page};
 }
 
 auto BufferPoolManager::FetchPageRead(page_id_t page_id) -> ReadPageGuard {
-//  LOG_INFO("# FetchPageRead : page_id %d", page_id);
+  //  LOG_INFO("# FetchPageRead : page_id %d", page_id);
   auto page = FetchPage(page_id);
   page->RLatch();
   return {this, page};
 }
 
 auto BufferPoolManager::FetchPageWrite(page_id_t page_id) -> WritePageGuard {
-//  LOG_INFO("# FetchPageWrite : page_id %d", page_id);
+  //  LOG_INFO("# FetchPageWrite : page_id %d", page_id);
   auto page = FetchPage(page_id);
   page->WLatch();
   return {this, page};
 }
 
 auto BufferPoolManager::NewPageGuarded(page_id_t *page_id) -> BasicPageGuard {
-//  LOG_INFO("# NewPageGuarded : ");
+  //  LOG_INFO("# NewPageGuarded : ");
   auto page = NewPage(page_id);
   return {this, page};
 }

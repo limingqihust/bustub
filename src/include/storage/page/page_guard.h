@@ -11,7 +11,7 @@ class BasicPageGuard {
   BasicPageGuard() = default;
 
   BasicPageGuard(BufferPoolManager *bpm, Page *page) : bpm_(bpm), page_(page) {
-//    LOG_INFO("# BasicPageGuard : page_id %d", page->GetPageId());
+    //    LOG_INFO("# BasicPageGuard : page_id %d", page->GetPageId());
   }
 
   BasicPageGuard(const BasicPageGuard &) = delete;
