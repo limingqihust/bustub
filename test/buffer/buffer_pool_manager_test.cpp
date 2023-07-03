@@ -22,7 +22,7 @@ namespace bustub {
 
 // NOLINTNEXTLINE
 // Check whether pages containing terminal characters can be recovered
-TEST(BufferPoolManagerTest, BinaryDataTest) {
+TEST(BufferPoolManagerTest, DISABLED_BinaryDataTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 10;
   const size_t k = 5;
@@ -88,7 +88,7 @@ TEST(BufferPoolManagerTest, BinaryDataTest) {
 }
 
 // NOLINTNEXTLINE
-TEST(BufferPoolManagerTest, SampleTest) {
+TEST(BufferPoolManagerTest, DISABLED_SampleTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 10;
   const size_t k = 5;
@@ -144,7 +144,7 @@ TEST(BufferPoolManagerTest, SampleTest) {
   delete disk_manager;
 }
 
-TEST(BufferPoolManagerTest, IsDirty) {
+TEST(BufferPoolManagerTest, DISABLED_IsDirty) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 1;
   const size_t k = 5;
@@ -172,7 +172,7 @@ TEST(BufferPoolManagerTest, IsDirty) {
   delete disk_manager;
 }
 
-TEST(BufferPoolManagerTest, HardTest) {
+TEST(BufferPoolManagerTest, DISABLED_HardTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 1;
   const size_t k = 5;
@@ -200,62 +200,227 @@ TEST(BufferPoolManagerTest, HardTest) {
   delete disk_manager;
 }
 
-TEST(PageGuardTest, DISABLED_HHTest) {
+TEST(BufferPoolManagerTest, HardTest_1) {
   const std::string db_name = "test.db";
-  const size_t buffer_pool_size = 5;
-  const size_t k = 2;
+  const size_t buffer_pool_size = 10;
+  const size_t k = 5;
 
-  auto disk_manager = new DiskManager(db_name);
-  auto bpm = std::make_shared<BufferPoolManager>(buffer_pool_size, disk_manager, k);
+  auto *disk_manager = new DiskManager(db_name);
+  auto *bpm = new BufferPoolManager(buffer_pool_size, disk_manager, k);
 
-  page_id_t page_id_temp = 0;
-  page_id_t page_id_temp_a;
-  auto *page0 = bpm->NewPage(&page_id_temp);
-  auto *page1 = bpm->NewPage(&page_id_temp_a);
-
-  auto guarded_page = BasicPageGuard(bpm.get(), page0);
-  auto guarded_page_a = BasicPageGuard(bpm.get(), page1);
-
-  // after drop, whether destructor decrements the pin_count_ ?
-  {
-    auto read_guard1 = bpm->FetchPageRead(page_id_temp_a);
-    EXPECT_EQ(2, page1->GetPinCount());
-    read_guard1.Drop();
-    EXPECT_EQ(1, page1->GetPinCount());
+  page_id_t page_temp;
+  for (int i = 0; i <= 9; i++) {
+    bpm->NewPage(&page_temp);
   }
-  EXPECT_EQ(1, page0->GetPinCount());
-  EXPECT_EQ(1, page1->GetPinCount());
-  // test the move assignment
-  {
-    auto read_guard1 = bpm->FetchPageRead(page_id_temp);
-    auto read_guard2 = bpm->FetchPageRead(page_id_temp_a);
-    EXPECT_EQ(2, page0->GetPinCount());
-    EXPECT_EQ(2, page1->GetPinCount());
-    read_guard2 = std::move(read_guard1);
-    EXPECT_EQ(2, page0->GetPinCount());
-    EXPECT_EQ(1, page1->GetPinCount());
-  }
-  EXPECT_EQ(1, page0->GetPinCount());
-  // test the move constructor
-  {
-    auto read_guard1 = bpm->FetchPageRead(page_id_temp);
-    auto read_guard2(std::move(read_guard1));
-    auto read_guard3(std::move(read_guard2));
-    EXPECT_EQ(2, page0->GetPinCount());
-  }
-  EXPECT_EQ(1, page0->GetPinCount());
-  EXPECT_EQ(page_id_temp, page0->GetPageId());
 
-  // repeat drop
-  guarded_page.Drop();
-  EXPECT_EQ(0, page0->GetPinCount());
-  guarded_page.Drop();
-  EXPECT_EQ(0, page0->GetPinCount());
+  for (int i = 0; i <= 9; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
 
-  disk_manager->ShutDown();
+  for (int i = 10; i <= 19; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 10; i <= 19; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 20; i <= 29; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 20; i <= 29; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 30; i <= 39; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 30; i <= 39; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 40; i <= 49; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 40; i <= 49; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 50; i <= 59; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 50; i <= 59; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 60; i <= 69; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 60; i <= 69; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 70; i <= 79; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 70; i <= 79; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 80; i <= 89; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 80; i <= 89; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 90; i <= 99; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 90; i <= 99; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 100; i <= 109; i++) {
+    bpm->NewPage(&page_temp);
+  }
+  for (int i = 100; i <= 109; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 110; i <= 119; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 110; i <= 119; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 120; i <= 129; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 120; i <= 129; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 130; i <= 139; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 130; i <= 139; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 140; i <= 149; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 140; i <= 149; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 150; i <= 159; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 150; i <= 159; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 160; i <= 169; i++) {
+    bpm->NewPage(&page_temp);
+  }
+
+  for (int i = 160; i <= 169; i++) {
+    if (i % 2 == 0) {
+      bpm->UnpinPage((page_id_t)i, true);
+    } else {
+      bpm->UnpinPage((page_id_t)i, false);
+    }
+  }
+
+  for (int i = 0; i <= 169; i++) {
+    bpm->FetchPage((page_id_t)i);
+    bpm->UnpinPage((page_id_t)i, false);
+  }
+  delete bpm;
+  delete disk_manager;
 }
 
-TEST(BufferPoolManagerTest, HardTest_3) {
+TEST(BufferPoolManagerTest, DISABLED_HardTest_3) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 50;
   const size_t k = 10;

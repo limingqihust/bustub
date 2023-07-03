@@ -1,7 +1,7 @@
 #pragma once
 
+#include "common/logger.h"
 #include "storage/page/page.h"
-
 namespace bustub {
 
 class BufferPoolManager;
@@ -10,7 +10,9 @@ class BasicPageGuard {
  public:
   BasicPageGuard() = default;
 
-  BasicPageGuard(BufferPoolManager *bpm, Page *page) : bpm_(bpm), page_(page) {}
+  BasicPageGuard(BufferPoolManager *bpm, Page *page) : bpm_(bpm), page_(page) {
+//    LOG_INFO("# BasicPageGuard : page_id %d", page->GetPageId());
+  }
 
   BasicPageGuard(const BasicPageGuard &) = delete;
   auto operator=(const BasicPageGuard &) -> BasicPageGuard & = delete;
