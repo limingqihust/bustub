@@ -20,7 +20,7 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, page_id_t header_page_id, BufferPool
   WritePageGuard guard = bpm_->FetchPageWrite(header_page_id_);
   auto root_page = guard.AsMut<BPlusTreeHeaderPage>();
   root_page->root_page_id_ = INVALID_PAGE_ID;
-  LOG_INFO("# BPlusTree : leaf_max_size : %d internal_max_size : %d", internal_max_size, leaf_max_size);
+  //  LOG_INFO("# BPlusTree : leaf_max_size : %d internal_max_size : %d", internal_max_size, leaf_max_size);
 }
 
 /*
@@ -38,13 +38,13 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool {
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn) -> bool {
   latch_.RLock();
-  LOG_INFO("# GetValue : key %ld", key.ToString());
+  //  LOG_INFO("# GetValue : key %ld", key.ToString());
   bool found_flag = false;
   Page *page = FindLeafPage(key);
   auto leaf_page = reinterpret_cast<LeafPage *>(page->GetData());
   if (leaf_page == nullptr) {
     bpm_->UnpinPage(page->GetPageId(), false);
-    LOG_INFO("# GetValue : key %ld done", key.ToString());
+    //    LOG_INFO("# GetValue : key %ld done", key.ToString());
     latch_.RUnlock();
     return false;
   }
@@ -55,7 +55,7 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
     }
   }
   bpm_->UnpinPage(page->GetPageId(), false);
-  LOG_INFO("# GetValue : key %ld done", key.ToString());
+  //  LOG_INFO("# GetValue : key %ld done", key.ToString());
   latch_.RUnlock();
   return found_flag;
   //  Context ctx;
@@ -117,15 +117,15 @@ auto BPLUSTREE_TYPE::FindLeftLeafPage() const -> Page * {
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *txn) -> bool {
   latch_.WLock();
-  LOG_INFO("# Insert :  key %ld value %s", key.ToString(), value.ToString().c_str());
+  //  LOG_INFO("# Insert :  key %ld value %s", key.ToString(), value.ToString().c_str());
   if (IsEmpty()) {
     StartNewTree(key, value);
-    LOG_INFO("# Insert : key %ld done", key.ToString());
+    //    LOG_INFO("# Insert : key %ld done", key.ToString());
     latch_.WUnlock();
     return true;
   }
   auto result = InsertIntoLeaf(key, value);
-  LOG_INFO("# Insert : key %ld done", key.ToString());
+  //  LOG_INFO("# Insert : key %ld done", key.ToString());
   latch_.WUnlock();
   return result;
   //  Context ctx;
@@ -242,9 +242,9 @@ auto BPLUSTREE_TYPE::Split(N *tree_page) -> N * {
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   latch_.WLock();
-  LOG_INFO("# Remove : key %ld", key.ToString());
+  //  LOG_INFO("# Remove : key %ld", key.ToString());
   if (IsEmpty()) {  // 树为空 直接返回
-    LOG_INFO("# Remove : key %ld done ", key.ToString());
+                    //    LOG_INFO("# Remove : key %ld done ", key.ToString());
     latch_.WUnlock();
     return;
   }
@@ -255,7 +255,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   int remove_index = leaf_page->KeyIndex(key, comparator_);
   if (comparator_(leaf_page->KeyAt(remove_index), key) != 0 || remove_index >= leaf_page->GetSize()) {  // 该key不存在
     bpm_->UnpinPage(page->GetPageId(), false);
-    LOG_INFO("# Remove : key %ld done", key.ToString());
+    //    LOG_INFO("# Remove : key %ld done", key.ToString());
     latch_.WUnlock();
     return;
   }
@@ -263,14 +263,14 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
 
   if (leaf_page_new_size >= leaf_page->GetMinSize()) {  // 删除后size大于最小大小
     bpm_->UnpinPage(page->GetPageId(), true);
-    LOG_INFO("# Remove : key %ld done", key.ToString());
+    //    LOG_INFO("# Remove : key %ld done", key.ToString());
     latch_.WUnlock();
     return;
   }
   //  LOG_INFO("# Remove : after remove,leaf_page_new_size is %d,need to coalesce or redistribute", leaf_page_new_size);
   CoalesceOrRedistribute(leaf_page);  // 删除后该叶子节点的size小于最大大小 需要重分配或者合并
   bpm_->UnpinPage(page->GetPageId(), true);
-  LOG_INFO("# Remove : key %ld done", key.ToString());
+  //  LOG_INFO("# Remove : key %ld done", key.ToString());
   latch_.WUnlock();
   //  Context ctx;
   //  (void)ctx;
@@ -437,7 +437,10 @@ void BPLUSTREE_TYPE::AdjustRoot(BPlusTreePage *old_root_page) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
-  LOG_INFO("# Begin : first");
+  //  LOG_INFO("# Begin : first");
+  if (IsEmpty()) {
+    return End();
+  }
   Page *first_page = FindLeftLeafPage();
   assert(first_page != nullptr);
   auto first_tree_page = reinterpret_cast<LeafPage *>(first_page->GetData());
@@ -451,7 +454,7 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
-  LOG_INFO("# Begin : key %ld", key.ToString());
+  //  LOG_INFO("# Begin : key %ld", key.ToString());
   Page *page = FindLeafPage(key);
   assert(page != nullptr);
   auto leaf_page = reinterpret_cast<LeafPage *>(page->GetData());

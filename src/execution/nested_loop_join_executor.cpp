@@ -19,14 +19,20 @@ namespace bustub {
 NestedLoopJoinExecutor::NestedLoopJoinExecutor(ExecutorContext *exec_ctx, const NestedLoopJoinPlanNode *plan,
                                                std::unique_ptr<AbstractExecutor> &&left_executor,
                                                std::unique_ptr<AbstractExecutor> &&right_executor)
-    : AbstractExecutor(exec_ctx) {
-  if (!(plan->GetJoinType() == JoinType::LEFT || plan->GetJoinType() == JoinType::INNER)) {
+    : AbstractExecutor(exec_ctx),
+      plan_(plan),
+      left_child_(std::move(left_executor)),
+      right_child_(std::move(right_executor)){
+  if (plan->GetJoinType() != JoinType::LEFT && plan->GetJoinType() != JoinType::INNER) {
     // Note for 2023 Spring: You ONLY need to implement left join and inner join.
     throw bustub::NotImplementedException(fmt::format("join type {} not supported", plan->GetJoinType()));
   }
+
 }
 
-void NestedLoopJoinExecutor::Init() { throw NotImplementedException("NestedLoopJoinExecutor is not implemented"); }
+void NestedLoopJoinExecutor::Init() {
+  throw NotImplementedException("NestedLoopJoinExecutor is not implemented");
+}
 
 auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool { return false; }
 

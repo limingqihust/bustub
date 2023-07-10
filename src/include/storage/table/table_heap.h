@@ -92,6 +92,9 @@ class TableHeap {
    */
   void UpdateTupleInPlaceUnsafe(const TupleMeta &meta, const Tuple &tuple, RID rid);
 
+  auto Begin() -> TableIterator;
+  auto End() -> TableIterator;
+
  private:
   BufferPoolManager *bpm_;
   page_id_t first_page_id_{INVALID_PAGE_ID};

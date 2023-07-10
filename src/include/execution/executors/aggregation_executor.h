@@ -63,6 +63,8 @@ class SimpleAggregationHashTable {
     return {values};
   }
 
+  void MakeEmpty(const AggregateKey &agg_key) { ht_.insert({agg_key,GenerateInitialAggregateValue()}); }
+
   /**
    * TODO(Student)
    *
@@ -72,12 +74,37 @@ class SimpleAggregationHashTable {
    */
   void CombineAggregateValues(AggregateValue *result, const AggregateValue &input) {
     for (uint32_t i = 0; i < agg_exprs_.size(); i++) {
+      auto& result_agg=result->aggregates_[i];
+      auto input_agg=input.aggregates_[i];
+      if(input_agg.IsNull())
+      {
+        continue;
+      }
+      if(result_agg.IsNull())
+      {
+        if(agg_types_[i]==AggregationType::CountAggregate)
+        {
+          result_agg=ValueFactory::GetIntegerValue(1);
+        }
+        else
+        {
+          result_agg=input_agg;
+        }
+        continue;
+      }
       switch (agg_types_[i]) {
         case AggregationType::CountStarAggregate:
         case AggregationType::CountAggregate:
+          result_agg=result_agg.Add(ValueFactory::GetIntegerValue(1));
+          break;
         case AggregationType::SumAggregate:
+          result_agg=result_agg.Add(input_agg);
+          break;
         case AggregationType::MinAggregate:
+          result_agg=result_agg.Min(input_agg);
+          break;
         case AggregationType::MaxAggregate:
+          result_agg=result_agg.Max(input_agg);
           break;
       }
     }
@@ -135,6 +162,9 @@ class SimpleAggregationHashTable {
   /** @return Iterator to the end of the hash table */
   auto End() -> Iterator { return Iterator{ht_.cend()}; }
 
+  auto Empty() const -> bool { return ht_.empty(); }
+
+  auto Size() const -> size_t { return ht_.size(); }
  private:
   /** The hash table is just a map from aggregate keys to aggregate values */
   std::unordered_map<AggregateKey, AggregateValue> ht_{};
@@ -201,6 +231,8 @@ class AggregationExecutor : public AbstractExecutor {
   /** The child executor that produces tuples over which the aggregation is computed */
   std::unique_ptr<AbstractExecutor> child_;
   /** Simple aggregation hash table */
+  SimpleAggregationHashTable hash_;
+  SimpleAggregationHashTable::Iterator hash_iter_;
   // TODO(Student): Uncomment SimpleAggregationHashTable aht_;
   /** Simple aggregation hash table iterator */
   // TODO(Student): Uncomment SimpleAggregationHashTable::Iterator aht_iterator_;

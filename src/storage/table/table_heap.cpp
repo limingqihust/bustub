@@ -122,4 +122,8 @@ void TableHeap::UpdateTupleInPlaceUnsafe(const TupleMeta &meta, const Tuple &tup
   page->UpdateTupleInPlaceUnsafe(meta, tuple, rid);
 }
 
+auto TableHeap::Begin() -> TableIterator { return MakeIterator(); }
+
+auto TableHeap::End() -> TableIterator { return {this, RID(INVALID_PAGE_ID, 0), RID(INVALID_PAGE_ID, 0)}; }
+
 }  // namespace bustub
