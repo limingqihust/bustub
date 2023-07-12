@@ -20,7 +20,9 @@ SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNod
       table_heap_(exec_ctx->GetCatalog()->GetTable(plan->table_oid_)->table_.get()),
       table_iterator_(table_heap_->MakeIterator()) {}
 
-void SeqScanExecutor::Init() {}
+void SeqScanExecutor::Init() {
+  table_iterator_=table_heap_->MakeIterator();
+}
 
 auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   while (true) {
