@@ -31,14 +31,14 @@ namespace bustub {
  * 5 尝试获取锁
  */
 auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool {
-  LOG_INFO("# LockTable : txn_id %d try to lock table %d with %s", txn->GetTransactionId(), oid,
-           fmt::format("lock mode {}", lock_mode).c_str());
+  LOG_INFO("# LockTable : txn %d try to lock table %d with %s %s", txn->GetTransactionId(), oid,
+           fmt::format("lock mode {}", lock_mode).c_str(),
+           fmt::format("isolation {}", txn->GetIsolationLevel()).c_str());
   // 检查是不是符合隔离级别
   if (!CanTxnTakeLock(txn, lock_mode)) {
     return false;
   }
-  //  LOG_INFO("# LockTable : txn_id %d asking table %d with %s comply with correct isolation", txn->GetTransactionId(),
-  //           oid, fmt::format("lock mode {}", lock_mode).c_str());
+
   // 获取该table的LockRequestQueue
   table_lock_map_latch_.lock();
   if (table_lock_map_.count(oid) == 0) {
@@ -49,35 +49,31 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
   lock_request_queue->latch_.lock();
   table_lock_map_latch_.unlock();
 
-  for (LockRequest *lock_request : lock_request_queue->request_queue_) {
+  for (const auto &lock_request : lock_request_queue->request_queue_) {
     // 该txn对该table已经有了一个锁了 尝试升级锁
     // 这个锁一定是获取了的 因为不可能正在请求一个锁还去申请另一个锁
     if (lock_request->txn_id_ == txn->GetTransactionId()) {
-      //      LOG_INFO("# LockTable : txn_id %d has a lock of table %d ,try to upgrade to %s", txn->GetTransactionId(),
-      //      oid,
-      //               fmt::format("lock mode {}", lock_mode).c_str());
+      LOG_INFO("# LockTable : txn %d has a lock of table %d ,try to upgrade to %s", txn->GetTransactionId(), oid,
+               fmt::format("lock mode {}", lock_mode).c_str());
       return UpgradeLockTable(txn, lock_mode, oid);
     }
   }
   // 该txn对该table不持有锁 新建一个锁请求
-  //  LOG_INFO("# LockTable : txn_id %d create a new request to  table %d with %s", txn->GetTransactionId(), oid,
-  //           fmt::format("lock mode {}", lock_mode).c_str());
-  auto new_lock_request = new LockRequest(txn->GetTransactionId(), lock_mode, oid);
-  LOG_INFO("# new : %p", new_lock_request);
-  auto iter = lock_request_queue->request_queue_.begin();
-  for (; iter != lock_request_queue->request_queue_.end(); iter++) {
-    if (!(*iter)->granted_) {
-      break;
-    }
-  }
-  lock_request_queue->request_queue_.insert(iter, new_lock_request);
+  LOG_INFO("# LockTable : txn %d create a new request to  table %d with %s", txn->GetTransactionId(), oid,
+           fmt::format("lock mode {}", lock_mode).c_str());
+  auto new_lock_request = std::make_shared<LockRequest>(txn->GetTransactionId(), lock_mode, oid);
+  lock_request_queue->request_queue_.emplace_back(new_lock_request);
   // 尝试获取锁
   std::unique_lock<std::mutex> lock(lock_request_queue->latch_, std::adopt_lock);
-  while (!GrantLockIfPossible(new_lock_request, lock_request_queue.get())) {
+  while (!GrantLockIfPossible(new_lock_request, lock_request_queue)) {
+    LOG_INFO("# LockTable : txn %d lock table %d with %s is blocked", txn->GetTransactionId(), oid,
+             fmt::format("lock mode {}", lock_mode).c_str());
     lock_request_queue->cv_.wait(lock);
+    LOG_INFO("# LockTable : txn %d is awaken from blocking, try to lock table %d with %s", txn->GetTransactionId(), oid,
+             fmt::format("lock mode {}", lock_mode).c_str());
   }
   // 成功获取锁
-  LOG_INFO("# LockTable : txn_id %d successfully get lock of table %d with %s", txn->GetTransactionId(), oid,
+  LOG_INFO("# LockTable : txn %d successfully get lock of table %d with %s", txn->GetTransactionId(), oid,
            fmt::format("lock mode {}", lock_mode).c_str());
   new_lock_request->granted_ = true;
   InsertTableLock(txn, oid, lock_mode);
@@ -104,16 +100,28 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
   // 寻找该txn对该table的锁请求
   for (auto iter = lock_request_queue->request_queue_.begin(); iter != lock_request_queue->request_queue_.end();
        iter++) {
-    LockRequest *lock_request = *iter;
+    auto lock_request = *iter;
     // 找到该txn对该table的锁请求 成功释放 并唤醒其他等待该table的锁的线程
     if (lock_request->txn_id_ == txn->GetTransactionId() && lock_request->granted_) {
       DeleteTableLock(txn, oid, lock_request->lock_mode_);
       // 修改该txn的状态
-      ChangeTxnState(txn, lock_request->lock_mode_);
+      switch (txn->GetIsolationLevel()) {
+        case IsolationLevel::REPEATABLE_READ:
+          if (lock_request->lock_mode_ == LockMode::EXCLUSIVE || lock_request->lock_mode_ == LockMode::SHARED) {
+            txn->SetState(TransactionState::SHRINKING);
+          }
+          break;
+        case IsolationLevel::READ_COMMITTED:
+        case IsolationLevel::READ_UNCOMMITTED:
+          if (lock_request->lock_mode_ == LockMode::EXCLUSIVE) {
+            txn->SetState(TransactionState::SHRINKING);
+          }
+          break;
+        default:
+          break;
+      }
       // 从该table的锁请求队列中删除该txn对该锁的请求
       lock_request_queue->request_queue_.erase(iter);
-      LOG_INFO("# delete : %p", lock_request);
-      delete lock_request;
       lock_request_queue->latch_.unlock();
       lock_request_queue->cv_.notify_all();
       return true;
@@ -132,6 +140,8 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
  * 加行级锁前需要保证表级锁
  */
 auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> bool {
+  //  LOG_INFO("# LockRow : txn %d lock table %d %s", txn->GetTransactionId(), oid,
+  //           fmt::format("lock mode {}", lock_mode).c_str());
   // 行级锁不支持意向锁
   if (lock_mode == LockMode::INTENTION_EXCLUSIVE || lock_mode == LockMode::INTENTION_SHARED ||
       lock_mode == LockMode::SHARED_INTENTION_EXCLUSIVE) {
@@ -144,6 +154,7 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
 }
 
 auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID &rid, bool force) -> bool {
+  //  LOG_INFO("# UnlockRow : txn %d unlock table %d", txn->GetTransactionId(), oid);
   return true;
 }
 
@@ -157,7 +168,7 @@ void LockManager::UnlockAll() {
 auto LockManager::UpgradeLockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool {
   // 找到该table的锁请求序列
   std::shared_ptr<LockRequestQueue> lock_request_queue = table_lock_map_[oid];
-  for (LockRequest *lock_request : lock_request_queue->request_queue_) {
+  for (const auto &lock_request : lock_request_queue->request_queue_) {
     if (lock_request->txn_id_ != txn->GetTransactionId()) {
       continue;
     }
@@ -184,14 +195,12 @@ auto LockManager::UpgradeLockTable(Transaction *txn, LockMode lock_mode, const t
 
     // 下面进行锁升级操作
     // 删除旧的锁请求
-    lock_request_queue->request_queue_.remove(lock_request);
     DeleteTableLock(txn, oid, lock_request->lock_mode_);
-    LOG_INFO("# delete : %p", lock_request);
-    delete lock_request;
+    lock_request_queue->request_queue_.remove(lock_request);
 
     // 插入新的锁请求
-    auto *new_upgrading_lock_request = new LockRequest(txn->GetTransactionId(), lock_mode, oid);
-    LOG_INFO("# new : %p", new_upgrading_lock_request);
+    //    auto *new_upgrading_lock_request = new LockRequest(txn->GetTransactionId(), lock_mode, oid);
+    auto new_upgrading_lock_request = std::make_shared<LockRequest>(txn->GetTransactionId(), lock_mode, oid);
     auto insert_pos = lock_request_queue->request_queue_.begin();
     for (; insert_pos != lock_request_queue->request_queue_.end(); insert_pos++) {
       if (!(*insert_pos)->granted_) {
@@ -202,7 +211,7 @@ auto LockManager::UpgradeLockTable(Transaction *txn, LockMode lock_mode, const t
     lock_request_queue->request_queue_.insert(insert_pos, new_upgrading_lock_request);
     lock_request_queue->upgrading_ = txn->GetTransactionId();
     std::unique_lock<std::mutex> lock(lock_request_queue->latch_, std::adopt_lock);
-    while (!GrantLockIfPossible(new_upgrading_lock_request, lock_request_queue.get())) {
+    while (!GrantLockIfPossible(new_upgrading_lock_request, lock_request_queue)) {
       lock_request_queue->cv_.wait(lock);
     }
 
@@ -354,16 +363,17 @@ auto LockManager::CanTxnTakeRowLock(Transaction *txn, LockMode lock_mode, table_
 /*
  * 尝试执行锁请求
  */
-auto LockManager::GrantLockIfPossible(LockRequest *lock_request, LockRequestQueue *lock_request_queue) -> bool {
-  for (auto lock_request_it : lock_request_queue->request_queue_) {
-    if (lock_request_it == lock_request) {
-      lock_request->granted_ = true;
-      return true;
-    }
+auto LockManager::GrantLockIfPossible(const std::shared_ptr<LockRequest> &lock_request,
+                                      const std::shared_ptr<LockRequestQueue> &lock_request_queue) -> bool {
+  for (const auto &lock_request_it : lock_request_queue->request_queue_) {
     if (lock_request_it->granted_) {
       if (!AreLocksCompatible(lock_request_it->lock_mode_, lock_request->lock_mode_)) {
         return false;
       }
+    } else if (lock_request_it != lock_request) {
+      return false;
+    } else {
+      return true;
     }
   }
   return true;
