@@ -37,8 +37,8 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
   if (!CanTxnTakeLock(txn, lock_mode)) {
     return false;
   }
-  LOG_INFO("# LockTable : txn_id %d asking table %d with %s comply with correct isolation", txn->GetTransactionId(),
-           oid, fmt::format("lock mode {}", lock_mode).c_str());
+  //  LOG_INFO("# LockTable : txn_id %d asking table %d with %s comply with correct isolation", txn->GetTransactionId(),
+  //           oid, fmt::format("lock mode {}", lock_mode).c_str());
   // 获取该table的LockRequestQueue
   table_lock_map_latch_.lock();
   if (table_lock_map_.count(oid) == 0) {
@@ -53,14 +53,15 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
     // 该txn对该table已经有了一个锁了 尝试升级锁
     // 这个锁一定是获取了的 因为不可能正在请求一个锁还去申请另一个锁
     if (lock_request->txn_id_ == txn->GetTransactionId()) {
-      LOG_INFO("# LockTable : txn_id %d has a lock of table %d ,try to upgrade to %s", txn->GetTransactionId(), oid,
-               fmt::format("lock mode {}", lock_mode).c_str());
+      //      LOG_INFO("# LockTable : txn_id %d has a lock of table %d ,try to upgrade to %s", txn->GetTransactionId(),
+      //      oid,
+      //               fmt::format("lock mode {}", lock_mode).c_str());
       return UpgradeLockTable(txn, lock_mode, oid);
     }
   }
   // 该txn对该table不持有锁 新建一个锁请求
-  LOG_INFO("# LockTable : txn_id %d create a new request to  table %d with %s comply with the isolation",
-           txn->GetTransactionId(), oid, fmt::format("lock mode {}", lock_mode).c_str());
+  //  LOG_INFO("# LockTable : txn_id %d create a new request to  table %d with %s",
+  //           txn->GetTransactionId(), oid, fmt::format("lock mode {}", lock_mode).c_str());
   auto new_lock_request = new LockRequest(txn->GetTransactionId(), lock_mode, oid);
   auto iter = lock_request_queue->request_queue_.begin();
   for (; iter != lock_request_queue->request_queue_.end(); iter++) {
@@ -85,6 +86,7 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
 }
 
 auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool {
+  LOG_INFO("# UnlockTable : txn %d unlock table %d", txn->GetTransactionId(), oid);
   table_lock_map_latch_.lock();
 
   // 没有对该table的锁请求队列
@@ -103,7 +105,7 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
        iter++) {
     LockRequest *lock_request = *iter;
     // 找到该txn对该table的锁请求 成功释放 并唤醒其他等待该table的锁的线程
-    if (lock_request->txn_id_ == txn->GetTransactionId()) {
+    if (lock_request->txn_id_ == txn->GetTransactionId() && lock_request->granted_) {
       DeleteTableLock(txn, oid, lock_request->lock_mode_);
       // 修改该txn的状态
       ChangeTxnState(txn, lock_request->lock_mode_);

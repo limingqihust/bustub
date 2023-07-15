@@ -18,23 +18,21 @@ SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNod
     : AbstractExecutor(exec_ctx),
       plan_(plan),
       table_heap_(exec_ctx->GetCatalog()->GetTable(plan->table_oid_)->table_.get()),
-      table_iterator_(table_heap_->MakeIterator()) {}
+      table_iterator_ptr_(std::make_shared<TableIterator>(table_heap_->MakeIterator())) {}
 
-void SeqScanExecutor::Init() {
-  table_iterator_ = table_heap_->MakeIterator();
-}
+void SeqScanExecutor::Init() { table_iterator_ptr_ = std::make_shared<TableIterator>(table_heap_->MakeIterator()); }
 
 auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   while (true) {
-    if (!table_iterator_.IsEnd()) {
-      auto tuplemeta = table_iterator_.GetTuple().first;
+    if (!table_iterator_ptr_->IsEnd()) {
+      auto tuplemeta = table_iterator_ptr_->GetTuple().first;
       if (!tuplemeta.is_deleted_) {
-        *rid = table_iterator_.GetRID();
-        *tuple = table_iterator_.GetTuple().second;
-        ++table_iterator_;
+        *rid = table_iterator_ptr_->GetRID();
+        *tuple = table_iterator_ptr_->GetTuple().second;
+        ++(*table_iterator_ptr_);
         return true;
       }
-      ++table_iterator_;
+      ++(*table_iterator_ptr_);
     } else {
       return false;
     }

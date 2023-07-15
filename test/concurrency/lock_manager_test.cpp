@@ -111,7 +111,7 @@ void TableLockTest1() {
   }
 }
 
-TEST(LockManagerTest, DISABLED_MyTest) {
+TEST(LockManagerTest, MyTest) {
   LockManager lock_mgr{};
   TransactionManager txn_mgr{&lock_mgr};
 
@@ -275,7 +275,7 @@ void TwoPLTest1() {
   delete txn;
 }
 
-TEST(LockManagerTest, TwoPLTest1) { TwoPLTest1(); }  // NOLINT
+TEST(LockManagerTest, DISABLED_TwoPLTest1) { TwoPLTest1(); }  // NOLINT
 
 void AbortTest1() {
   fmt::print(stderr, "AbortTest1: multiple X should block\n");

@@ -32,7 +32,7 @@ class TableIterator {
   friend class Cursor;
 
  public:
-  //  DISALLOW_COPY(TableIterator);
+  DISALLOW_COPY(TableIterator);
 
   TableIterator(TableHeap *table_heap, RID rid, RID stop_at_rid);
   TableIterator(TableIterator &&) = default;
@@ -46,13 +46,6 @@ class TableIterator {
   auto IsEnd() -> bool;
 
   auto operator++() -> TableIterator &;
-
-  auto operator=(const TableIterator &other) -> TableIterator & {
-    table_heap_ = other.table_heap_;
-    rid_ = other.rid_;
-    stop_at_rid_ = other.stop_at_rid_;
-    return *this;
-  }
 
  private:
   TableHeap *table_heap_;
