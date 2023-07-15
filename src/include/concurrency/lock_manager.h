@@ -327,7 +327,6 @@ class LockManager {
   auto GrantLockIfPossible(LockRequest *lock_request, LockRequestQueue *lock_request_queue) -> bool;
   void DeleteTableLock(Transaction *txn, table_oid_t oid, LockMode lock_mode);
   void InsertTableLock(Transaction *txn, table_oid_t oid, LockMode lock_mode);
-  auto GetLockType(Transaction *txn, table_oid_t oid) const -> std::optional<LockMode>;
   void ChangeTxnState(Transaction *txn, LockMode lock_mode);
 
   /** Structure that holds lock requests for a given table oid */
