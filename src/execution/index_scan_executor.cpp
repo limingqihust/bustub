@@ -22,9 +22,7 @@ IndexScanExecutor::IndexScanExecutor(ExecutorContext *exec_ctx, const IndexScanP
   iter_ = tree_index_->GetBeginIterator();
 }
 
-void IndexScanExecutor::Init() {
-  iter_ = tree_index_->GetBeginIterator();
-}
+void IndexScanExecutor::Init() { iter_ = tree_index_->GetBeginIterator(); }
 
 auto IndexScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   const auto &bpm = exec_ctx_->GetBufferPoolManager();

@@ -32,7 +32,7 @@ class TableIterator {
   friend class Cursor;
 
  public:
-//  DISALLOW_COPY(TableIterator);
+  //  DISALLOW_COPY(TableIterator);
 
   TableIterator(TableHeap *table_heap, RID rid, RID stop_at_rid);
   TableIterator(TableIterator &&) = default;
@@ -53,6 +53,7 @@ class TableIterator {
     stop_at_rid_ = other.stop_at_rid_;
     return *this;
   }
+
  private:
   TableHeap *table_heap_;
   RID rid_;

@@ -110,6 +110,41 @@ void TableLockTest1() {
     delete txns[i];
   }
 }
+
+TEST(LockManagerTest, DISABLED_MyTest) {
+  LockManager lock_mgr{};
+  TransactionManager txn_mgr{&lock_mgr};
+
+  std::vector<table_oid_t> oids;
+  std::vector<Transaction *> txns;
+
+  /** 10 tables */
+  int num_oids = 10;
+  for (int i = 0; i < num_oids; i++) {
+    table_oid_t oid{static_cast<uint32_t>(i)};
+    oids.push_back(oid);
+    txns.push_back(txn_mgr.Begin());
+    EXPECT_EQ(i, txns[i]->GetTransactionId());
+  }
+  auto txn_id = oids[0];
+  bool res;
+  for (const table_oid_t &oid : oids) {
+    res = lock_mgr.LockTable(txns[txn_id], LockManager::LockMode::EXCLUSIVE, oid);
+    EXPECT_TRUE(res);
+    CheckGrowing(txns[txn_id]);
+  }
+  for (const table_oid_t &oid : oids) {
+    res = lock_mgr.UnlockTable(txns[txn_id], oid);
+    EXPECT_TRUE(res);
+    CheckShrinking(txns[txn_id]);
+  }
+  txn_mgr.Commit(txns[txn_id]);
+  CheckCommitted(txns[txn_id]);
+
+  /** All locks should be dropped */
+  CheckTableLockSizes(txns[txn_id], 0, 0, 0, 0, 0);
+}
+
 TEST(LockManagerTest, DISABLED_TableLockTest1) { TableLockTest1(); }  // NOLINT
 
 /** Upgrading single transaction from S -> X */
@@ -240,7 +275,7 @@ void TwoPLTest1() {
   delete txn;
 }
 
-TEST(LockManagerTest, DISABLED_TwoPLTest1) { TwoPLTest1(); }  // NOLINT
+TEST(LockManagerTest, TwoPLTest1) { TwoPLTest1(); }  // NOLINT
 
 void AbortTest1() {
   fmt::print(stderr, "AbortTest1: multiple X should block\n");

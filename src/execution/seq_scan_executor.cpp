@@ -21,7 +21,7 @@ SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNod
       table_iterator_(table_heap_->MakeIterator()) {}
 
 void SeqScanExecutor::Init() {
-  table_iterator_=table_heap_->MakeIterator();
+  table_iterator_ = table_heap_->MakeIterator();
 }
 
 auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
