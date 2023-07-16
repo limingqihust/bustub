@@ -51,11 +51,11 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
 
   for (const auto &lock_request : lock_request_queue->request_queue_) {
     // 该txn对该table已经有了一个锁了 尝试升级锁
-    // 这个锁一定是获取了的 因为不可能正在请求一个锁还去申请另一个锁
+    // 这个锁一定是获取了的 因为不可能正在请求一个锁还去申请另一个锁 并且对同一个表只可能有一个锁 不可能同时持有两把锁
     if (lock_request->txn_id_ == txn->GetTransactionId()) {
       LOG_INFO("# LockTable : txn %d has a lock of table %d ,try to upgrade to %s", txn->GetTransactionId(), oid,
                fmt::format("lock mode {}", lock_mode).c_str());
-      return UpgradeLockTable(txn, lock_mode, oid);
+      return UpgradeLockTable(txn, lock_request_queue, lock_mode, oid);
     }
   }
   // 该txn对该table不持有锁 新建一个锁请求
@@ -69,6 +69,12 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
     LOG_INFO("# LockTable : txn %d lock table %d with %s is blocked", txn->GetTransactionId(), oid,
              fmt::format("lock mode {}", lock_mode).c_str());
     lock_request_queue->cv_.wait(lock);
+    // 为什么要这么做 在什么情况下状态会被设为ABORTED
+    if (txn->GetState() == TransactionState::ABORTED) {
+      lock_request_queue->request_queue_.remove(new_lock_request);
+      lock_request_queue->cv_.notify_all();
+      return false;
+    }
     LOG_INFO("# LockTable : txn %d is awaken from blocking, try to lock table %d with %s", txn->GetTransactionId(), oid,
              fmt::format("lock mode {}", lock_mode).c_str());
   }
@@ -77,8 +83,9 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
            fmt::format("lock mode {}", lock_mode).c_str());
   new_lock_request->granted_ = true;
   InsertTableLock(txn, oid, lock_mode);
-  lock_request_queue->latch_.unlock();
-  lock_request_queue->cv_.notify_all();
+  if (lock_mode != LockMode::EXCLUSIVE) {
+    lock_request_queue->cv_.notify_all();
+  }
   return true;
 }
 
@@ -164,10 +171,11 @@ void LockManager::UnlockAll() {
 
 /*
  * 升级一个表级锁
+ * 已经获取了lock_request_queue的锁
  */
-auto LockManager::UpgradeLockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool {
+auto LockManager::UpgradeLockTable(Transaction *txn, std::shared_ptr<LockRequestQueue> &lock_request_queue,
+                                   LockMode lock_mode, const table_oid_t &oid) -> bool {
   // 找到该table的锁请求序列
-  std::shared_ptr<LockRequestQueue> lock_request_queue = table_lock_map_[oid];
   for (const auto &lock_request : lock_request_queue->request_queue_) {
     if (lock_request->txn_id_ != txn->GetTransactionId()) {
       continue;
@@ -198,8 +206,7 @@ auto LockManager::UpgradeLockTable(Transaction *txn, LockMode lock_mode, const t
     DeleteTableLock(txn, oid, lock_request->lock_mode_);
     lock_request_queue->request_queue_.remove(lock_request);
 
-    // 插入新的锁请求
-    //    auto *new_upgrading_lock_request = new LockRequest(txn->GetTransactionId(), lock_mode, oid);
+    // 插入新的锁请求 锁升级请求优先
     auto new_upgrading_lock_request = std::make_shared<LockRequest>(txn->GetTransactionId(), lock_mode, oid);
     auto insert_pos = lock_request_queue->request_queue_.begin();
     for (; insert_pos != lock_request_queue->request_queue_.end(); insert_pos++) {
@@ -212,15 +219,30 @@ auto LockManager::UpgradeLockTable(Transaction *txn, LockMode lock_mode, const t
     lock_request_queue->upgrading_ = txn->GetTransactionId();
     std::unique_lock<std::mutex> lock(lock_request_queue->latch_, std::adopt_lock);
     while (!GrantLockIfPossible(new_upgrading_lock_request, lock_request_queue)) {
+      LOG_INFO("# UpgradeTableLock : txn %d upgrade lock table %d with %s is blocked", txn->GetTransactionId(), oid,
+               fmt::format("lock mode {}", lock_mode).c_str());
       lock_request_queue->cv_.wait(lock);
+      if (txn->GetState() == TransactionState::ABORTED) {
+        lock_request_queue->upgrading_ = INVALID_TXN_ID;
+        lock_request_queue->request_queue_.remove(new_upgrading_lock_request);
+        lock_request_queue->cv_.notify_all();
+        return false;
+      }
+      LOG_INFO("# UpgradeTableLock : txn %d try to upgrade lock table %d with %s", txn->GetTransactionId(), oid,
+               fmt::format("lock mode {}", lock_mode).c_str());
     }
 
     // 完成升级锁请求
+    LOG_INFO("# UpgradeLockTable : txn %d successfully upgrade lock on table %d with %s", txn->GetTransactionId(), oid,
+             fmt::format("lock mod {}", lock_mode).c_str());
     lock_request_queue->upgrading_ = INVALID_TXN_ID;
     new_upgrading_lock_request->granted_ = true;
     InsertTableLock(txn, oid, new_upgrading_lock_request->lock_mode_);
     lock_request_queue->latch_.unlock();
-    lock_request_queue->cv_.notify_all();
+
+    if (lock_mode != LockMode::EXCLUSIVE) {
+      lock_request_queue->cv_.notify_all();
+    }
     return true;
   }
   return false;
@@ -334,6 +356,9 @@ auto LockManager::CanLockUpgrade(LockMode curr_lock_mode, LockMode requested_loc
       if (requested_lock_mode != LockMode::EXCLUSIVE) {
         return false;
       }
+      break;
+    case LockMode::EXCLUSIVE:
+      return false;
       break;
     default:
       break;

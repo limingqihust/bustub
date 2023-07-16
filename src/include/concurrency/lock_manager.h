@@ -313,7 +313,8 @@ class LockManager {
  private:
   /** Spring 2023 */
   /* You are allowed to modify all functions below. */
-  auto UpgradeLockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool;
+  auto UpgradeLockTable(Transaction *txn, std::shared_ptr<LockRequestQueue> &lock_request_queue, LockMode lock_mode,
+                        const table_oid_t &oid) -> bool;
   auto UpgradeLockRow(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> bool;
   auto AreLocksCompatible(LockMode l1, LockMode l2) const -> bool;
   auto CanTxnTakeLock(Transaction *txn, LockMode lock_mode) -> bool;
