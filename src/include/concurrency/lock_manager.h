@@ -315,7 +315,8 @@ class LockManager {
   /* You are allowed to modify all functions below. */
   auto UpgradeLockTable(Transaction *txn, std::shared_ptr<LockRequestQueue> &lock_request_queue, LockMode lock_mode,
                         const table_oid_t &oid) -> bool;
-  auto UpgradeLockRow(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> bool;
+  auto UpgradeLockRow(Transaction *txn, std::shared_ptr<LockRequestQueue> &lock_request_queue, LockMode lock_mode,
+                      const table_oid_t &oid, const RID &rid) -> bool;
   auto AreLocksCompatible(LockMode l1, LockMode l2) const -> bool;
   auto CanTxnTakeLock(Transaction *txn, LockMode lock_mode) -> bool;
   void GrantNewLocksIfPossible(LockRequestQueue *lock_request_queue);
@@ -325,12 +326,14 @@ class LockManager {
                  std::unordered_set<txn_id_t> &visited, txn_id_t *abort_txn_id) -> bool;
   void UnlockAll();
 
-  auto CanTxnTakeRowLock(Transaction *txn, LockMode lock_mode, table_oid_t oid) const -> bool;
+  auto EasureTableLockBeforeRowLock(Transaction *txn, LockMode lock_mode, table_oid_t oid) const -> bool;
   auto GrantLockIfPossible(const std::shared_ptr<LockRequest> &lock_request,
                            const std::shared_ptr<LockRequestQueue> &lock_request_queue) -> bool;
   void DeleteTableLock(Transaction *txn, table_oid_t oid, LockMode lock_mode);
   void InsertTableLock(Transaction *txn, table_oid_t oid, LockMode lock_mode);
-  void ChangeTxnState(Transaction *txn, LockMode lock_mode);
+  void InsertRowLock(Transaction *txn, table_oid_t oid, RID rid, LockMode lock_mode);
+  void DeleteRowLock(Transaction *txn, table_oid_t oid, RID rid, LockMode lock_mode);
+  auto EasureUnlockRowBeforeUnlockTable(Transaction *txn, const table_oid_t &oid) const -> bool;
 
   /** Structure that holds lock requests for a given table oid */
   std::unordered_map<table_oid_t, std::shared_ptr<LockRequestQueue>> table_lock_map_;
