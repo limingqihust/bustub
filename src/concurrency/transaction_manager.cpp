@@ -31,7 +31,7 @@ void TransactionManager::Commit(Transaction *txn) {
 
 void TransactionManager::Abort(Transaction *txn) {
   /* TODO: revert all the changes in write set */
-
+  LOG_INFO("# Abort : txn %d", txn->GetTransactionId());
   ReleaseLocks(txn);
 
   txn->SetState(TransactionState::ABORTED);

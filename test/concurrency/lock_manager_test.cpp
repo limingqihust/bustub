@@ -59,7 +59,7 @@ void CheckTableLockSizes(Transaction *txn, size_t s_size, size_t x_size, size_t 
   EXPECT_EQ(six_size, txn->GetSharedIntentionExclusiveTableLockSet()->size());
 }
 
-TEST(LockManagerTest, DISABLED_TableLockTest1) {
+TEST(LockManagerTest, TableLockTest1) {
   LockManager lock_mgr{};
   TransactionManager txn_mgr{&lock_mgr};
 
@@ -112,7 +112,7 @@ TEST(LockManagerTest, DISABLED_TableLockTest1) {
 }  // NOLINT
 
 /** Upgrading single transaction from S -> X */
-TEST(LockManagerTest, DISABLED_TableLockUpgradeTest1) {
+TEST(LockManagerTest, TableLockUpgradeTest1) {
   LockManager lock_mgr{};
   TransactionManager txn_mgr{&lock_mgr};
 
@@ -135,7 +135,7 @@ TEST(LockManagerTest, DISABLED_TableLockUpgradeTest1) {
   delete txn1;
 }  // NOLINT
 
-TEST(LockManagerTest, DISABLED_RowLockTest1) {
+TEST(LockManagerTest, RowLockTest1) {
   LockManager lock_mgr{};
   TransactionManager txn_mgr{&lock_mgr};
 
@@ -190,7 +190,7 @@ TEST(LockManagerTest, DISABLED_RowLockTest1) {
   }
 }  // NOLINT
 
-TEST(LockManagerTest, DISABLED_TwoPLTest1) {
+TEST(LockManagerTest, TwoPLTest1) {
   LockManager lock_mgr{};
   TransactionManager txn_mgr{&lock_mgr};
   table_oid_t oid = 0;
