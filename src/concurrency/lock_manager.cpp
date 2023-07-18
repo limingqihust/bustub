@@ -46,26 +46,20 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
   }
 
   std::shared_ptr<LockRequestQueue> lock_request_queue = table_lock_map_[oid];
-  lock_request_queue->latch_.lock();
+  std::unique_lock<std::mutex> lock(lock_request_queue->latch_);
   table_lock_map_latch_.unlock();
 
   for (const auto &lock_request : lock_request_queue->request_queue_) {
     // 该txn对该table已经有了一个锁了 尝试升级锁
     // 这个锁一定是获取了的 因为不可能正在请求一个锁还去申请另一个锁 并且对同一个表只可能有一个锁 不可能同时持有两把锁
     if (lock_request->txn_id_ == txn->GetTransactionId()) {
-      //      LOG_INFO("# LockTable : txn %d has a lock of table %d ,try to upgrade to %s", txn->GetTransactionId(),
-      //      oid,
-      //               fmt::format("lock mode {}", lock_mode).c_str());
       return UpgradeLockTable(txn, lock_request_queue, lock_mode, oid);
     }
   }
   // 该txn对该table不持有锁 新建一个锁请求
-  //  LOG_INFO("# LockTable : txn %d create a new request to  table %d with %s", txn->GetTransactionId(), oid,
-  //           fmt::format("lock mode {}", lock_mode).c_str());
   auto new_lock_request = std::make_shared<LockRequest>(txn->GetTransactionId(), lock_mode, oid);
   lock_request_queue->request_queue_.emplace_back(new_lock_request);
   // 尝试获取锁
-  std::unique_lock<std::mutex> lock(lock_request_queue->latch_, std::adopt_lock);
   while (!GrantLockIfPossible(new_lock_request, lock_request_queue)) {
     LOG_INFO("# LockTable : txn %d lock table %d is blocked", txn->GetTransactionId(), oid);
     lock_request_queue->cv_.wait(lock);
@@ -73,7 +67,6 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
     if (txn->GetState() == TransactionState::ABORTED) {
       LOG_INFO("# LockTable : txn %d is aborted, notify all thread blocked by table %d", txn->GetTransactionId(), oid);
       lock_request_queue->request_queue_.remove(new_lock_request);
-      txn_manager_->Abort(txn);
       lock_request_queue->cv_.notify_all();
       return false;
     }
@@ -104,7 +97,7 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
     return false;
   }
   auto lock_request_queue = table_lock_map_[oid];
-  lock_request_queue->latch_.lock();
+  std::unique_lock<std::mutex> lock(lock_request_queue->latch_);
   table_lock_map_latch_.unlock();
 
   // 寻找该txn对该table的锁请求
@@ -132,14 +125,12 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
       }
       // 从该table的锁请求队列中删除该txn对该锁的请求
       lock_request_queue->request_queue_.erase(iter);
-      lock_request_queue->latch_.unlock();
       lock_request_queue->cv_.notify_all();
       return true;
     }
   }
 
   // 该事务不对该table持有任何锁
-  lock_request_queue->latch_.unlock();
   txn->SetState(TransactionState::ABORTED);
   throw TransactionAbortException(txn->GetTransactionId(), AbortReason::ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD);
   return false;
@@ -186,7 +177,7 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
     row_lock_map_[rid] = std::make_shared<LockRequestQueue>();
   }
   std::shared_ptr<LockRequestQueue> lock_request_queue = row_lock_map_[rid];
-  lock_request_queue->latch_.lock();
+  std::unique_lock<std::mutex> lock(lock_request_queue->latch_);
   row_lock_map_latch_.unlock();
 
   for (const auto &lock_request : lock_request_queue->request_queue_) {
@@ -200,7 +191,6 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
   lock_request_queue->request_queue_.emplace_back(new_lock_request);
 
   // 尝试获取锁
-  std::unique_lock<std::mutex> lock(lock_request_queue->latch_, std::adopt_lock);
   while (!GrantLockIfPossible(new_lock_request, lock_request_queue)) {
     LOG_INFO("# LockRow : txn %d lock rid <%d %d> is blocked", txn->GetTransactionId(), rid.GetPageId(),
              rid.GetSlotNum());
@@ -238,7 +228,7 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
   }
 
   auto lock_request_queue = row_lock_map_[rid];
-  lock_request_queue->latch_.lock();
+  std::unique_lock<std::mutex> lock(lock_request_queue->latch_);
   row_lock_map_latch_.unlock();
 
   // 寻找该txn对该rid的锁请求
@@ -268,7 +258,6 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
 
       // 从该rid的锁请求队列中删除该请求
       lock_request_queue->request_queue_.erase(iter);
-      lock_request_queue->latch_.unlock();
       LOG_INFO("# UnlockRow : txn %d notify txn blocked by row <%d %d>", txn->GetTransactionId(), rid.GetPageId(),
                rid.GetSlotNum());
       lock_request_queue->cv_.notify_all();
@@ -277,7 +266,6 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
   }
 
   // 该事务对该rid不持有任何锁
-  lock_request_queue->latch_.unlock();
   txn->SetState(TransactionState::ABORTED);
   throw TransactionAbortException(txn->GetTransactionId(), AbortReason::ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD);
   return false;
@@ -300,13 +288,12 @@ auto LockManager::UpgradeLockTable(Transaction *txn, std::shared_ptr<LockRequest
     }
     // 找到该txn对该table的锁的一个请求
     if (lock_request->lock_mode_ == lock_mode) {  // 如果已获得对该table的同级锁
-      lock_request_queue->latch_.unlock();
+                                                  //      lock_request_queue->latch_.unlock();
       return true;
     }
 
     // 有其他txn对该table有一个锁升级请求 不合法
     if (lock_request_queue->upgrading_ != INVALID_TXN_ID) {
-      lock_request_queue->latch_.unlock();
       txn->SetState(TransactionState::ABORTED);
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::UPGRADE_CONFLICT);
       return false;
@@ -314,7 +301,6 @@ auto LockManager::UpgradeLockTable(Transaction *txn, std::shared_ptr<LockRequest
 
     // 检查锁升级操作是否合法
     if (!CanLockUpgrade(lock_request->lock_mode_, lock_mode)) {
-      lock_request_queue->latch_.unlock();
       txn->SetState(TransactionState::ABORTED);
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::INCOMPATIBLE_UPGRADE);
     }
@@ -360,7 +346,6 @@ auto LockManager::UpgradeLockTable(Transaction *txn, std::shared_ptr<LockRequest
     lock_request_queue->upgrading_ = INVALID_TXN_ID;
     new_upgrading_lock_request->granted_ = true;
     InsertTableLock(txn, oid, new_upgrading_lock_request->lock_mode_);
-    lock_request_queue->latch_.unlock();
 
     lock_request_queue->cv_.notify_all();
 
@@ -381,13 +366,11 @@ auto LockManager::UpgradeLockRow(Transaction *txn, std::shared_ptr<LockRequestQu
     }
     // 找到该txn对该rid的一个锁请求
     if (lock_request->lock_mode_ == lock_mode) {
-      lock_request_queue->latch_.unlock();
       return true;
     }
 
     // 有其他txn对该rid的一个锁升级请求 不合法
     if (lock_request_queue->upgrading_ != INVALID_TXN_ID) {
-      lock_request_queue->latch_.unlock();
       txn->SetState(TransactionState::ABORTED);
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::UPGRADE_CONFLICT);
       return false;
@@ -395,7 +378,6 @@ auto LockManager::UpgradeLockRow(Transaction *txn, std::shared_ptr<LockRequestQu
 
     // 检查锁升级操作是否合法
     if (!CanLockUpgrade(lock_request->lock_mode_, lock_mode)) {
-      lock_request_queue->latch_.unlock();
       txn->SetState(TransactionState::ABORTED);
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::INCOMPATIBLE_UPGRADE);
     }
@@ -440,7 +422,6 @@ auto LockManager::UpgradeLockRow(Transaction *txn, std::shared_ptr<LockRequestQu
     lock_request_queue->upgrading_ = INVALID_TXN_ID;
     new_upgrading_lock_request->granted_ = true;
     InsertRowLock(txn, oid, rid, new_upgrading_lock_request->lock_mode_);
-    lock_request_queue->latch_.unlock();
     lock_request_queue->cv_.notify_all();
     return true;
   }
@@ -754,14 +735,12 @@ auto LockManager::GetEdgeList() -> std::vector<std::pair<txn_id_t, txn_id_t>> {
       edges.emplace_back(t1, t2);
     }
   }
-  waits_for_latch_.unlock();
   return edges;
 }
 
 void LockManager::RunCycleDetection() {
   while (enable_cycle_detection_) {
     std::this_thread::sleep_for(cycle_detection_interval);
-    //    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     {  // TODO(students): detect deadlock
       LOG_INFO("# RunCycleDetection : begin");
       waits_for_.clear();
@@ -843,9 +822,7 @@ void LockManager::RunCycleDetection() {
           }
         }
 
-        remove_lock_request_queue->latch_.lock();
         remove_lock_request_queue->cv_.notify_all();
-        remove_lock_request_queue->latch_.unlock();
       }
       LOG_INFO("# RunCycleDelection : have no cycle");
       // 已经没有环了
