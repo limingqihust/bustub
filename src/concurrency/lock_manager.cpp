@@ -32,8 +32,8 @@ namespace bustub {
  * 5 尝试获取锁
  */
 auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> bool {
-  LOG_INFO("# LockTable : txn %d try to lock table %d with %s", txn->GetTransactionId(), oid,
-           fmt::format("lock mode : {}", lock_mode).c_str());
+//  LOG_INFO("# LockTable : txn %d try to lock table %d with %s", txn->GetTransactionId(), oid,
+//           fmt::format("lock mode : {}", lock_mode).c_str());
   // 检查是不是符合隔离级别
   if (!CanTxnTakeLock(txn, lock_mode)) {
     return false;
@@ -61,18 +61,18 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
   lock_request_queue->request_queue_.emplace_back(new_lock_request);
   // 尝试获取锁
   while (!GrantLockIfPossible(new_lock_request, lock_request_queue)) {
-    LOG_INFO("# LockTable : txn %d lock table %d is blocked", txn->GetTransactionId(), oid);
+//    LOG_INFO("# LockTable : txn %d lock table %d is blocked", txn->GetTransactionId(), oid);
     lock_request_queue->cv_.wait(lock);
-    LOG_INFO("# LockTable : txn %d is awaken from blocking, try to lock table %d", txn->GetTransactionId(), oid);
+//    LOG_INFO("# LockTable : txn %d is awaken from blocking, try to lock table %d", txn->GetTransactionId(), oid);
     if (txn->GetState() == TransactionState::ABORTED) {
-      LOG_INFO("# LockTable : txn %d is aborted, notify all thread blocked by table %d", txn->GetTransactionId(), oid);
+//      LOG_INFO("# LockTable : txn %d is aborted, notify all thread blocked by table %d", txn->GetTransactionId(), oid);
       lock_request_queue->request_queue_.remove(new_lock_request);
       lock_request_queue->cv_.notify_all();
       return false;
     }
   }
   // 成功获取锁
-  LOG_INFO("# LockTable : txn %d successfully get lock of table %d", txn->GetTransactionId(), oid);
+//  LOG_INFO("# LockTable : txn %d successfully get lock of table %d", txn->GetTransactionId(), oid);
   new_lock_request->granted_ = true;
   InsertTableLock(txn, oid, lock_mode);
   lock_request_queue->cv_.notify_all();
@@ -80,7 +80,7 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
 }
 
 auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool {
-  LOG_INFO("# UnlockTable : txn %d unlock table %d", txn->GetTransactionId(), oid);
+//  LOG_INFO("# UnlockTable : txn %d unlock table %d", txn->GetTransactionId(), oid);
   // 检查该txn是否持有该表的行级锁
   if (!EasureUnlockRowBeforeUnlockTable(txn, oid)) {
     txn->SetState(TransactionState::ABORTED);
@@ -154,8 +154,8 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
  *
  */
 auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> bool {
-  LOG_INFO("# LockRow : txn %d try to lock table %d row <%d %d> with %s", txn->GetTransactionId(), oid, rid.GetPageId(),
-           rid.GetSlotNum(), fmt::format("lock mode : {}", lock_mode).c_str());
+//  LOG_INFO("# LockRow : txn %d try to lock table %d row <%d %d> with %s", txn->GetTransactionId(), oid, rid.GetPageId(),
+//           rid.GetSlotNum(), fmt::format("lock mode : {}", lock_mode).c_str());
   // 行级锁不支持意向锁
   if (lock_mode == LockMode::INTENTION_EXCLUSIVE || lock_mode == LockMode::INTENTION_SHARED ||
       lock_mode == LockMode::SHARED_INTENTION_EXCLUSIVE) {
@@ -192,14 +192,14 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
 
   // 尝试获取锁
   while (!GrantLockIfPossible(new_lock_request, lock_request_queue)) {
-    LOG_INFO("# LockRow : txn %d lock rid <%d %d> is blocked", txn->GetTransactionId(), rid.GetPageId(),
-             rid.GetSlotNum());
+//    LOG_INFO("# LockRow : txn %d lock rid <%d %d> is blocked", txn->GetTransactionId(), rid.GetPageId(),
+//             rid.GetSlotNum());
     lock_request_queue->cv_.wait(lock);
-    LOG_INFO("# LockRow : txn %d is awaken from blocking, try to lock row <%d %d>", txn->GetTransactionId(),
-             rid.GetPageId(), rid.GetSlotNum());
+//    LOG_INFO("# LockRow : txn %d is awaken from blocking, try to lock row <%d %d>", txn->GetTransactionId(),
+//             rid.GetPageId(), rid.GetSlotNum());
     if (txn->GetState() == TransactionState::ABORTED) {
-      LOG_INFO("# LockRow : txn %d is aborted, notify thread blocked by row <%d %d>", txn->GetTransactionId(),
-               rid.GetPageId(), rid.GetSlotNum());
+//      LOG_INFO("# LockRow : txn %d is aborted, notify thread blocked by row <%d %d>", txn->GetTransactionId(),
+//               rid.GetPageId(), rid.GetSlotNum());
       lock_request_queue->request_queue_.remove(new_lock_request);
       lock_request_queue->cv_.notify_all();
       return false;
@@ -207,8 +207,8 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
   }
 
   // 成功获取锁
-  LOG_INFO("# LockRow : txn %d successfully get lock of row <%d %d>", txn->GetTransactionId(), rid.GetPageId(),
-           rid.GetSlotNum());
+//  LOG_INFO("# LockRow : txn %d successfully get lock of row <%d %d>", txn->GetTransactionId(), rid.GetPageId(),
+//           rid.GetSlotNum());
   new_lock_request->granted_ = true;
   InsertRowLock(txn, oid, rid, lock_mode);
   lock_request_queue->cv_.notify_all();
@@ -216,7 +216,7 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
 }
 
 auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID &rid, bool force) -> bool {
-  LOG_INFO("# UnlockRow : txn %d unlock row <%d %d>", txn->GetTransactionId(), rid.GetPageId(), rid.GetSlotNum());
+//  LOG_INFO("# UnlockRow : txn %d unlock row <%d %d>", txn->GetTransactionId(), rid.GetPageId(), rid.GetSlotNum());
   row_lock_map_latch_.lock();
 
   // 如果没有对该rid的锁请求队列
@@ -258,8 +258,8 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
 
       // 从该rid的锁请求队列中删除该请求
       lock_request_queue->request_queue_.erase(iter);
-      LOG_INFO("# UnlockRow : txn %d notify txn blocked by row <%d %d>", txn->GetTransactionId(), rid.GetPageId(),
-               rid.GetSlotNum());
+//      LOG_INFO("# UnlockRow : txn %d notify txn blocked by row <%d %d>", txn->GetTransactionId(), rid.GetPageId(),
+//               rid.GetSlotNum());
       lock_request_queue->cv_.notify_all();
       return true;
     }
@@ -323,26 +323,26 @@ auto LockManager::UpgradeLockTable(Transaction *txn, std::shared_ptr<LockRequest
     lock_request_queue->upgrading_ = txn->GetTransactionId();
     std::unique_lock<std::mutex> lock(lock_request_queue->latch_, std::adopt_lock);
     while (!GrantLockIfPossible(new_upgrading_lock_request, lock_request_queue)) {
-      LOG_INFO("# UpgradeTableLock : txn %d upgrade lock table %d with %s is blocked", txn->GetTransactionId(), oid,
-               fmt::format("lock mode {}", lock_mode).c_str());
+//      LOG_INFO("# UpgradeTableLock : txn %d upgrade lock table %d with %s is blocked", txn->GetTransactionId(), oid,
+//               fmt::format("lock mode {}", lock_mode).c_str());
       lock_request_queue->cv_.wait(lock);
-      LOG_INFO("# UpgradeTableLock : txn %d is awaken from blocking, try to lock table %d with %s",
-               txn->GetTransactionId(), oid, fmt::format("lock mode {}", lock_mode).c_str());
+//      LOG_INFO("# UpgradeTableLock : txn %d is awaken from blocking, try to lock table %d with %s",
+//               txn->GetTransactionId(), oid, fmt::format("lock mode {}", lock_mode).c_str());
       if (txn->GetState() == TransactionState::ABORTED) {
-        LOG_INFO("# UpgradeTableLock : txn %d is aborted, notify all thread blocked by table %d",
-                 txn->GetTransactionId(), oid);
+//        LOG_INFO("# UpgradeTableLock : txn %d is aborted, notify all thread blocked by table %d",
+//                 txn->GetTransactionId(), oid);
         lock_request_queue->upgrading_ = INVALID_TXN_ID;
         lock_request_queue->request_queue_.remove(new_upgrading_lock_request);
         lock_request_queue->cv_.notify_all();
         return false;
       }
-      LOG_INFO("# UpgradeTableLock : txn %d try to upgrade lock table %d with %s", txn->GetTransactionId(), oid,
-               fmt::format("lock mode {}", lock_mode).c_str());
+//      LOG_INFO("# UpgradeTableLock : txn %d try to upgrade lock table %d with %s", txn->GetTransactionId(), oid,
+//               fmt::format("lock mode {}", lock_mode).c_str());
     }
 
     // 完成升级锁请求
-    LOG_INFO("# UpgradeLockTable : txn %d successfully upgrade lock on table %d with %s", txn->GetTransactionId(), oid,
-             fmt::format("lock mod {}", lock_mode).c_str());
+//    LOG_INFO("# UpgradeLockTable : txn %d successfully upgrade lock on table %d with %s", txn->GetTransactionId(), oid,
+//             fmt::format("lock mod {}", lock_mode).c_str());
     lock_request_queue->upgrading_ = INVALID_TXN_ID;
     new_upgrading_lock_request->granted_ = true;
     InsertTableLock(txn, oid, new_upgrading_lock_request->lock_mode_);
@@ -399,26 +399,26 @@ auto LockManager::UpgradeLockRow(Transaction *txn, std::shared_ptr<LockRequestQu
     lock_request_queue->upgrading_ = txn->GetTransactionId();
     std::unique_lock<std::mutex> lock(lock_request_queue->latch_, std::adopt_lock);
     while (!GrantLockIfPossible(new_upgrading_lock_request, lock_request_queue)) {
-      LOG_INFO("# UpgradeRowLock : txn %d upgrade lock on row %s with %s is blocked", txn->GetTransactionId(),
-               rid.ToString().c_str(), fmt::format("lock mode {}", lock_mode).c_str());
+//      LOG_INFO("# UpgradeRowLock : txn %d upgrade lock on row %s with %s is blocked", txn->GetTransactionId(),
+//               rid.ToString().c_str(), fmt::format("lock mode {}", lock_mode).c_str());
       lock_request_queue->cv_.wait(lock);
-      LOG_INFO("# LockRow : txn %d is awaken from blocking, try to lock row %s with %s", txn->GetTransactionId(),
-               rid.ToString().c_str(), fmt::format("lock mode {}", lock_mode).c_str());
+//      LOG_INFO("# LockRow : txn %d is awaken from blocking, try to lock row %s with %s", txn->GetTransactionId(),
+//               rid.ToString().c_str(), fmt::format("lock mode {}", lock_mode).c_str());
       if (txn->GetState() == TransactionState::ABORTED) {
-        LOG_INFO("# UpgradeRowLock : txn %d is aborted, notify all thread blocked by row %s", txn->GetTransactionId(),
-                 rid.ToString().c_str());
+//        LOG_INFO("# UpgradeRowLock : txn %d is aborted, notify all thread blocked by row %s", txn->GetTransactionId(),
+//                 rid.ToString().c_str());
         lock_request_queue->upgrading_ = INVALID_TXN_ID;
         lock_request_queue->request_queue_.remove(new_upgrading_lock_request);
         lock_request_queue->cv_.notify_all();
         return false;
       }
-      LOG_INFO("# UpgradeRowLock : txn %d try to upgrade lock on row %s with %s", txn->GetTransactionId(),
-               rid.ToString().c_str(), fmt::format("lock mode {}", lock_mode).c_str());
+//      LOG_INFO("# UpgradeRowLock : txn %d try to upgrade lock on row %s with %s", txn->GetTransactionId(),
+//               rid.ToString().c_str(), fmt::format("lock mode {}", lock_mode).c_str());
     }
 
     // 完成锁升级请求
-    LOG_INFO("# UpgradeRowLock : txn %d successfully upgrade lock on row %s with %s", txn->GetTransactionId(),
-             rid.ToString().c_str(), fmt::format("lock mod {}", lock_mode).c_str());
+//    LOG_INFO("# UpgradeRowLock : txn %d successfully upgrade lock on row %s with %s", txn->GetTransactionId(),
+//             rid.ToString().c_str(), fmt::format("lock mod {}", lock_mode).c_str());
     lock_request_queue->upgrading_ = INVALID_TXN_ID;
     new_upgrading_lock_request->granted_ = true;
     InsertRowLock(txn, oid, rid, new_upgrading_lock_request->lock_mode_);
@@ -669,7 +669,6 @@ auto LockManager::EasureUnlockRowBeforeUnlockTable(Transaction *txn, const table
 
 /********************************************************************************************************************/
 void LockManager::AddEdge(txn_id_t t1, txn_id_t t2) {
-  LOG_INFO("# AddEdge : %d %d", t1, t2);
   auto &txn_id_vector = waits_for_[t1];
   if (std::count(txn_id_vector.begin(), txn_id_vector.end(), t2) == 0) {
     txn_id_vector.emplace_back(t2);
@@ -677,7 +676,6 @@ void LockManager::AddEdge(txn_id_t t1, txn_id_t t2) {
 }
 
 void LockManager::RemoveEdge(txn_id_t t1, txn_id_t t2) {
-  LOG_INFO("# RemoveEdge : %d %d", t1, t2);
   auto t2_iter = std::find(waits_for_[t1].begin(), waits_for_[t1].end(), t2);
   if (t2_iter != waits_for_[t1].end()) {
     waits_for_[t1].erase(t2_iter);
@@ -742,7 +740,7 @@ void LockManager::RunCycleDetection() {
   while (enable_cycle_detection_) {
     std::this_thread::sleep_for(cycle_detection_interval);
     {  // TODO(students): detect deadlock
-      LOG_INFO("# RunCycleDetection : begin");
+//      LOG_INFO("# RunCycleDetection : begin");
       waits_for_.clear();
       waits_for_latch_.lock();
       table_lock_map_latch_.lock();
@@ -789,7 +787,7 @@ void LockManager::RunCycleDetection() {
 
       txn_id_t remove_txn_id = INVALID_TXN_ID;
       while (HasCycle(&remove_txn_id)) {
-        LOG_INFO("# RunCycleDetection : find a cycle , remove txn %d", remove_txn_id);
+//        LOG_INFO("# RunCycleDetection : find a cycle , remove txn %d", remove_txn_id);
         // 找到一个环
         assert(waits_for_[remove_txn_id].size() == 1);
         // 删除边
@@ -805,7 +803,7 @@ void LockManager::RunCycleDetection() {
           for (const auto &lock_request : lock_request_queue->request_queue_) {
             if (lock_request->txn_id_ == remove_txn_id && !lock_request->granted_) {
               remove_lock_request_queue = lock_request_queue;
-              LOG_INFO("# RunCycleDetection : will remove txn %d asking table %d", remove_txn_id, iter.first);
+//              LOG_INFO("# RunCycleDetection : will remove txn %d asking table %d", remove_txn_id, iter.first);
               break;
             }
           }
@@ -815,8 +813,8 @@ void LockManager::RunCycleDetection() {
           for (const auto &lock_request : lock_request_queue->request_queue_) {
             if (lock_request->txn_id_ == remove_txn_id && !lock_request->granted_) {
               remove_lock_request_queue = lock_request_queue;
-              LOG_INFO("# RunCycleDetection : will remove txn %d asking row <%d %d>", remove_txn_id,
-                       iter.first.GetPageId(), iter.first.GetSlotNum());
+//              LOG_INFO("# RunCycleDetection : will remove txn %d asking row <%d %d>", remove_txn_id,
+//                       iter.first.GetPageId(), iter.first.GetSlotNum());
               break;
             }
           }
@@ -824,12 +822,12 @@ void LockManager::RunCycleDetection() {
 
         remove_lock_request_queue->cv_.notify_all();
       }
-      LOG_INFO("# RunCycleDelection : have no cycle");
+//      LOG_INFO("# RunCycleDelection : have no cycle");
       // 已经没有环了
       waits_for_latch_.unlock();
       table_lock_map_latch_.unlock();
       row_lock_map_latch_.unlock();
-      LOG_INFO("# RunCycleDetection : done");
+//      LOG_INFO("# RunCycleDetection : done");
     }
   }
 }

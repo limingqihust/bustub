@@ -45,6 +45,10 @@ class SeqScanExecutor : public AbstractExecutor {
    */
   auto Next(Tuple *tuple, RID *rid) -> bool override;
 
+  auto LockTable(Transaction *txn, LockManager *lock_mgr, table_oid_t oid) -> bool;
+  auto UnlockTable(Transaction *txn, LockManager *lock_mgr, table_oid_t oid) -> bool;
+  auto LockRow(Transaction *txn, LockManager *lock_mgr, table_oid_t oid, RID rid) -> bool;
+  auto UnlockRow(Transaction *txn, LockManager *lock_mgr, table_oid_t oid, RID rid) -> bool;
   /** @return The output schema for the sequential scan */
   auto GetOutputSchema() const -> const Schema & override { return plan_->OutputSchema(); }
 
@@ -53,5 +57,8 @@ class SeqScanExecutor : public AbstractExecutor {
   const SeqScanPlanNode *plan_;
   TableHeap *table_heap_;
   std::shared_ptr<TableIterator> table_iterator_ptr_ = nullptr;
+  Transaction *transaction_;
+  LockManager *lock_mgr_;
+  TransactionManager *txn_mgr_;
 };
 }  // namespace bustub

@@ -31,7 +31,29 @@ void TransactionManager::Commit(Transaction *txn) {
 
 void TransactionManager::Abort(Transaction *txn) {
   /* TODO: revert all the changes in write set */
-  LOG_INFO("# Abort : txn %d", txn->GetTransactionId());
+  std::shared_ptr<std::deque<IndexWriteRecord>> index_write_set = txn->GetIndexWriteSet();
+  std::shared_ptr<std::deque<TableWriteRecord>> table_write_set = txn->GetWriteSet();
+  // 恢复修改的索引
+  while (!index_write_set->empty()) {
+    IndexWriteRecord index_write_record = index_write_set->back();
+    index_write_set->pop_back();
+    if (index_write_record.wtype_ == WType::INSERT) {
+      index_write_record.catalog_->GetIndex(index_write_record.index_oid_)
+          ->index_->DeleteEntry(index_write_record.tuple_, index_write_record.rid_, txn);
+    } else {
+      index_write_record.catalog_->GetIndex(index_write_record.index_oid_)
+          ->index_->InsertEntry(index_write_record.tuple_, index_write_record.rid_, txn);
+    }
+  }
+  // 恢复修改的表
+  while (!table_write_set->empty()) {
+    TableWriteRecord table_write_record = table_write_set->back();
+    table_write_set->pop_back();
+    TupleMeta old_tuple_meta = table_write_record.table_heap_->GetTupleMeta(table_write_record.rid_);
+    old_tuple_meta.is_deleted_ = true;
+    table_write_record.table_heap_->UpdateTupleMeta(old_tuple_meta, table_write_record.rid_);
+  }
+
   ReleaseLocks(txn);
 
   txn->SetState(TransactionState::ABORTED);

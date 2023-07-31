@@ -45,6 +45,9 @@ auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
       auto old_key = old_tuple.KeyFromTuple(table_info_->schema_, *index_info->index_->GetKeySchema(),
                                             index_info->index_->GetKeyAttrs());
       index_info->index_->DeleteEntry(old_key, old_rid, exec_ctx_->GetTransaction());
+      // 更新write set
+      exec_ctx_->GetTransaction()->AppendIndexWriteRecord(
+          {old_rid, plan_->TableOid(), WType::DELETE, old_tuple, index_info->index_oid_, exec_ctx_->GetCatalog()});
     }
   }
   is_end_ = true;

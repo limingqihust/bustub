@@ -23,7 +23,18 @@ InsertExecutor::InsertExecutor(ExecutorContext *exec_ctx, const InsertPlanNode *
   table_heap_ = table_info_->table_.get();
 }
 
-void InsertExecutor::Init() { child_executor_->Init(); }
+void InsertExecutor::Init() {
+  child_executor_->Init();
+  // 加表级锁 X锁
+  try {
+    if (!exec_ctx_->GetLockManager()->LockTable(exec_ctx_->GetTransaction(), LockManager::LockMode::EXCLUSIVE,
+                                                plan_->TableOid())) {
+      throw ExecutionException("[InsertExecutor] lock table failed");
+    }
+  } catch (TransactionAbortException &e) {
+    throw ExecutionException("[InsertExecutor] lock table failed");
+  }
+}
 
 auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
   if (is_end_) {
@@ -38,6 +49,8 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
     new_rid = (table_heap_->InsertTuple(tuple_meta_to_insert, new_tuple, exec_ctx_->GetLockManager(),
                                         exec_ctx_->GetTransaction(), table_info_->oid_))
                   .value();
+    // 更新write set
+    exec_ctx_->GetTransaction()->AppendTableWriteRecord({plan_->TableOid(), new_rid, table_heap_});
     insert_cnt++;
 
     // 更新索引
@@ -46,6 +59,9 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
       auto new_key = new_tuple.KeyFromTuple(table_info_->schema_, *index_info->index_->GetKeySchema(),
                                             index_info->index_->GetKeyAttrs());
       index_info->index_->InsertEntry(new_key, new_rid, exec_ctx_->GetTransaction());
+      // 更新write set
+      exec_ctx_->GetTransaction()->AppendIndexWriteRecord(
+          {new_rid, plan_->TableOid(), WType::INSERT, new_tuple, index_info->index_oid_, exec_ctx_->GetCatalog()});
     }
   }
   is_end_ = true;
